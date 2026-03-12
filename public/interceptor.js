@@ -6,6 +6,7 @@
   const PREVIEW_PARAM = 'url';
   const META_BASE_SELECTOR = 'meta[name="proxy-base"]';
   const META_ENCODE_SELECTOR = 'meta[name="proxy-encode"]';
+  const PROXY_ASSET_VERSION = "2026-03-12a";
   let lastReportedUrl = "";
   let reportTimer = null;
 
@@ -49,11 +50,47 @@
     return true;
   }
 
+  function shouldKeepOriginalHref(el, baseUrl) {
+    try {
+      const base = new URL(baseUrl || window.location.href);
+      const host = base.hostname.toLowerCase();
+      const path = base.pathname.toLowerCase();
+      if (host.endsWith("search.brave.com") && path.startsWith("/images")) {
+        const attrs = [
+          "data-image",
+          "data-image-url",
+          "data-image-src",
+          "data-thumb",
+          "data-full",
+          "data-testid",
+          "data-type",
+        ];
+        for (const name of attrs) {
+          const value = el.getAttribute && el.getAttribute(name);
+          if (value && /image|thumb|photo|result/i.test(value)) {
+            return true;
+          }
+        }
+        const className = el.getAttribute && el.getAttribute("class");
+        if (className && /image|thumb|photo/i.test(className)) {
+          return true;
+        }
+      }
+    } catch {
+      // Ignore heuristic errors.
+    }
+    return false;
+  }
+
 
   function buildProxyPath(url) {
     try {
       if (isEncodeEnabled()) {
-        return `/api/p/e/${encodeUrlToken(url)}`;
+        const parsed = new URL(url);
+        const token = encodeUrlToken(parsed.origin);
+        const path = parsed.pathname && parsed.pathname !== "/" ? parsed.pathname : "/";
+        const base = `${PROXY_URL}e/${token}${path}`;
+        return parsed.search ? `${base}${parsed.search}` : base;
       }
       const parsed = new URL(url);
       const scheme = parsed.protocol.replace(":", "");
@@ -82,8 +119,8 @@
           parsed.pathname.startsWith("/api/p/") ||
           parsed.pathname.startsWith("/api/preview") ||
           (!isProxyContext && parsed.pathname.startsWith("/_next/")) ||
-          parsed.pathname === "/interceptor.js" ||
-          parsed.pathname === "/proxy-sw.js"
+          parsed.pathname.startsWith("/interceptor.js") ||
+          parsed.pathname.startsWith("/proxy-sw.js")
         ) {
           return value;
         }
@@ -97,8 +134,8 @@
         value.startsWith("/api/p/") ||
         value.startsWith("/api/preview") ||
         (!isProxyContext && value.startsWith("/_next/")) ||
-        value === "/interceptor.js" ||
-        value === "/proxy-sw.js"
+        value.startsWith("/interceptor.js") ||
+        value.startsWith("/proxy-sw.js")
       ) {
         return value;
       }
@@ -300,6 +337,10 @@
           (isAnchor && attr === "href") ||
           (isFrame && attr === "src") ||
           (isForm && attr === "action" && method === "get");
+        if (isAnchor && attr === "href" && shouldKeepOriginalHref(el, baseUrl)) {
+          el.setAttribute("data-proxy-keep-href", "1");
+          return;
+        }
         const rewritten = usePreview ? proxifyDocument(value, baseUrl) : proxify(value, baseUrl);
         if (rewritten && rewritten !== value) {
           el.setAttribute(attr, rewritten);
@@ -355,7 +396,9 @@
   };
 
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/proxy-sw.js", { scope: "/" }).catch(() => {});
+    navigator.serviceWorker
+      .register(`/proxy-sw.js?v=${PROXY_ASSET_VERSION}`, { scope: "/" })
+      .catch(() => {});
   }
 
   try {
@@ -518,6 +561,7 @@
         event.shiftKey ||
         event.altKey;
       const href = target.getAttribute("href");
+      if (target.getAttribute("data-proxy-keep-href") === "1") return;
       const rewritten = proxifyDocument(href, getBaseUrl());
       const resolved = resolveVirtualUrl(href);
       if (isNewTabRequest && rewritten) {
@@ -531,8 +575,7 @@
         return;
       }
       if (rewritten && rewritten !== href) {
-        event.preventDefault();
-        window.location.href = rewritten;
+        target.setAttribute("href", rewritten);
       }
     },
     false

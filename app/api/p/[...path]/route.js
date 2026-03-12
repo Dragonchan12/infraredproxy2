@@ -11,13 +11,16 @@ function buildTargetUrl(pathSegments, requestUrl) {
     if (!decoded) return "";
     if (pathSegments.length > 2) {
       const rest = pathSegments.slice(2).join("/");
-      let base = decoded;
       try {
-        base = new URL(decoded).origin;
+        const resolved = new URL(rest, decoded);
+        if (requestUrl.search) {
+          resolved.search = requestUrl.search;
+        }
+        return resolved.toString();
       } catch {
-        base = decoded.endsWith("/") ? decoded.slice(0, -1) : decoded;
+        const safe = decoded.endsWith("/") ? decoded.slice(0, -1) : decoded;
+        return `${safe}/${rest}${requestUrl.search || ""}`;
       }
-      return `${base}/${rest}${requestUrl.search || ""}`;
     }
     return decoded;
   }

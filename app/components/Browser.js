@@ -614,7 +614,11 @@ export default function Browser({ whitelistEnabled, encodeEnabled }) {
               value={addressValue}
               onChange={(event) => setInput(event.target.value)}
               onKeyDown={(event) => {
-                if (event.key === "Enter") handleOpen();
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  handleOpen();
+                }
               }}
               onFocus={() => setAddressFocused(true)}
               onBlur={() => setAddressFocused(false)}
@@ -622,6 +626,20 @@ export default function Browser({ whitelistEnabled, encodeEnabled }) {
             <div className="controls-actions">
               <button type="button" onClick={handleOpen}>
                 Go
+              </button>
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => {
+                  const url = activeTab?.url || input;
+                  const preview = getPreviewHref(url);
+                  if (preview) {
+                    const joiner = preview.includes("?") ? "&" : "?";
+                    window.location.href = `${preview}${joiner}top=1`;
+                  }
+                }}
+              >
+                Full Page
               </button>
               <button type="button" className="ghost" onClick={() => setShowHistory((prev) => !prev)}>
                 History

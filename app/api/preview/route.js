@@ -15,6 +15,7 @@ import {
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+const PROXY_ASSET_VERSION = "2026-03-12a";
 
 function getProxyBaseFromCookies(cookieHeader) {
   if (!cookieHeader) return "";
@@ -219,7 +220,9 @@ export async function GET(request) {
         // Ignore malformed __NEXT_DATA__.
       }
     }
-    $("head").prepend('<script src="/interceptor.js" data-proxy-static="1"></script>');
+    $("head").prepend(
+      `<script src="/interceptor.js?v=${PROXY_ASSET_VERSION}" data-proxy-static="1"></script>`
+    );
     const safeMetaBase = encodedBase.replace(/"/g, "&quot;");
     $("head").prepend(`<meta name="proxy-base" content="${safeMetaBase}">`);
     $("head").prepend('<meta name="referrer" content="same-origin">');

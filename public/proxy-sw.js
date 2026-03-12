@@ -54,15 +54,17 @@ function getTargetFromProxiedReferrer(referrer) {
       const token = parts[0];
       const decoded = decodeUrlToken(token);
       if (!decoded) return "";
-      let origin = decoded;
-      try {
-        origin = new URL(decoded).origin;
-      } catch {
-        origin = decoded.endsWith("/") ? decoded.slice(0, -1) : decoded;
-      }
       if (parts.length > 1) {
         const tail = parts.slice(1).join("/");
-        return `${origin}/${tail}${refUrl.search || ""}`;
+        try {
+          const resolved = new URL(tail, decoded);
+          if (refUrl.search) {
+            resolved.search = refUrl.search;
+          }
+          return resolved.toString();
+        } catch {
+          return `${decoded}${refUrl.search || ""}`;
+        }
       }
       return `${decoded}${refUrl.search || ""}`;
     }
@@ -86,7 +88,11 @@ function getTargetFromProxiedReferrer(referrer) {
 function buildProxyPath(url) {
   try {
     if (isEncodeEnabled()) {
-      return `${PROXY_PREFIX}e/${encodeUrlToken(url)}`;
+      const parsed = new URL(url);
+      const token = encodeUrlToken(parsed.origin);
+      const path = parsed.pathname && parsed.pathname !== "/" ? parsed.pathname : "/";
+      const base = `${PROXY_PREFIX}e/${token}${path}`;
+      return parsed.search ? `${base}${parsed.search}` : base;
     }
     const parsed = new URL(url);
     const scheme = parsed.protocol.replace(":", "");

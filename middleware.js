@@ -40,9 +40,10 @@ function buildProxyPath(targetUrl) {
   try {
     const parsed = new URL(targetUrl);
     if (shouldEncodeUrls()) {
-      const token = encodeUrlToken(parsed.toString());
+      const token = encodeUrlToken(parsed.origin);
       if (token) {
-        return { pathname: `/api/p/e/${token}`, search: "" };
+        const path = parsed.pathname && parsed.pathname !== "/" ? parsed.pathname : "/";
+        return { pathname: `/api/p/e/${token}${path}`, search: parsed.search || "" };
       }
     }
     const scheme = parsed.protocol.replace(":", "");
