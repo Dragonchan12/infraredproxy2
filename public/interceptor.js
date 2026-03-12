@@ -100,7 +100,12 @@
   function buildProxyPath(url) {
     try {
       if (isEncodeEnabled()) {
-        return `/api/p/e/${encodeUrlToken(url)}`;
+        const parsed = new URL(url);
+        const token = encodeUrlToken(parsed.origin);
+        if (!token) return "";
+        const path = parsed.pathname && parsed.pathname !== "/" ? parsed.pathname : "/";
+        const base = `/api/p/e/${token}${path}`;
+        return parsed.search ? `${base}${parsed.search}` : base;
       }
       const parsed = new URL(url);
       const scheme = parsed.protocol.replace(":", "");
@@ -621,7 +626,7 @@
         window.location.href = rewritten;
       }
     },
-    true
+    false
   );
 
   document.addEventListener(
@@ -646,7 +651,7 @@
         window.location.href = rewritten;
       }
     },
-    true
+    false
   );
 
   try {

@@ -46,12 +46,17 @@ function getTargetFromProxiedReferrer(referrer) {
       const token = parts[0];
       const decoded = decodeUrlToken(token);
       if (!decoded) return "";
+      let origin = decoded;
+      try {
+        origin = new URL(decoded).origin;
+      } catch {
+        origin = decoded.endsWith("/") ? decoded.slice(0, -1) : decoded;
+      }
       if (parts.length > 1) {
         const tail = parts.slice(1).join("/");
-        const base = decoded.endsWith("/") ? decoded.slice(0, -1) : decoded;
-        return `${base}/${tail}${refUrl.search || ""}`;
+        return `${origin}/${tail}${refUrl.search || ""}`;
       }
-      return decoded;
+      return `${origin}${refUrl.search || ""}`;
     }
     if (refUrl.pathname.startsWith("/api/p/")) {
       const rest = refUrl.pathname.slice("/api/p/".length);
@@ -72,10 +77,14 @@ function getTargetFromProxiedReferrer(referrer) {
 
 function buildProxyPath(url) {
   try {
-    if (isEncodeEnabled()) {
-      return `${PROXY_PREFIX}e/${encodeUrlToken(url)}`;
-    }
     const parsed = new URL(url);
+    if (isEncodeEnabled()) {
+      const token = encodeUrlToken(parsed.origin);
+      if (!token) return "";
+      const path = parsed.pathname && parsed.pathname !== "/" ? parsed.pathname : "/";
+      const base = `${PROXY_PREFIX}e/${token}${path}`;
+      return parsed.search ? `${base}${parsed.search}` : base;
+    }
     const scheme = parsed.protocol.replace(":", "");
     const host = parsed.host;
     const path = parsed.pathname && parsed.pathname !== "/" ? parsed.pathname : "/";

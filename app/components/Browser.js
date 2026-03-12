@@ -311,6 +311,33 @@ export default function Browser({ whitelistEnabled, encodeEnabled }) {
       }
       if (data.type === "proxy:new-tab") {
         const url = typeof data.url === "string" && data.url ? data.url : DEFAULT_HOME;
+        let shouldReuse = false;
+        try {
+          if (activeTab && activeTab.url) {
+            const nextHost = new URL(url).hostname;
+            const currentHost = new URL(activeTab.url).hostname;
+            shouldReuse = nextHost === currentHost;
+          }
+        } catch {
+          shouldReuse = false;
+        }
+        if (shouldReuse && activeTab) {
+          setTabs((prev) =>
+            prev.map((tab) => {
+              if (tab.id !== activeTab.id) return tab;
+              const updated = {
+                ...tab,
+                url,
+                iframeUrl: url,
+                title: getTabTitle(url),
+              };
+              return updateTabHistory(updated, url);
+            })
+          );
+          setInput(url);
+          addHistoryEntry(url, getTabTitle(url));
+          return;
+        }
         openTabWithUrl(url);
         return;
       }

@@ -11,10 +11,19 @@ function buildTargetUrl(pathSegments, requestUrl) {
     if (!decoded) return "";
     if (pathSegments.length > 2) {
       const rest = pathSegments.slice(2).join("/");
-      const base = decoded.endsWith("/") ? decoded.slice(0, -1) : decoded;
+      let base = decoded;
+      try {
+        base = new URL(decoded).origin;
+      } catch {
+        base = decoded.endsWith("/") ? decoded.slice(0, -1) : decoded;
+      }
       return `${base}/${rest}${requestUrl.search || ""}`;
     }
-    return decoded;
+    try {
+      return `${new URL(decoded).origin}${requestUrl.search || ""}`;
+    } catch {
+      return `${decoded}${requestUrl.search || ""}`;
+    }
   }
   const [scheme, host, ...rest] = pathSegments;
   if (!scheme || !host) return "";
