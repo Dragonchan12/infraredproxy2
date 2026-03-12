@@ -42,3 +42,4 @@ Open `http://localhost:3000` and enter an allowlisted URL.
 ## Notes
 - Rate limits and audit logs are in-memory on Vercel serverless. For durable storage, integrate a managed store (e.g., Redis or a logging service).
 - The iframe is sandboxed so scripts cannot access your app origin. Some sites may not work fully.
+# infraredproxy2
