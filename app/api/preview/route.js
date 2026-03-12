@@ -249,6 +249,24 @@ export async function GET(request) {
           backdrop-filter: blur(8px);
           border: 1px solid rgba(255, 255, 255, 0.12);
         }
+        .proxy-topbar.collapsed {
+          right: auto;
+          width: fit-content;
+          padding: 6px 10px;
+          grid-template-columns: auto;
+        }
+        .proxy-topbar.collapsed .proxy-topbar-item {
+          display: none;
+        }
+        .proxy-topbar .toggle {
+          background: rgba(255, 255, 255, 0.16);
+          color: #f5f7fb;
+          font-weight: 700;
+        }
+        .proxy-topbar,
+        .proxy-topbar * {
+          pointer-events: auto;
+        }
         .proxy-topbar button {
           appearance: none;
           border: none;
@@ -285,11 +303,12 @@ export async function GET(request) {
       );
       $("body").prepend(
         `<div class="proxy-topbar" data-proxy-static="1">
-          <span class="label">Proxy</span>
-          <button type="button" class="secondary" data-action="back">Back</button>
-          <button type="button" class="secondary" data-action="forward">Forward</button>
-          <input type="text" data-proxy-url readonly />
-          <button type="button" data-action="exit">Exit</button>
+          <span class="label proxy-topbar-item">Proxy</span>
+          <button type="button" class="secondary proxy-topbar-item" data-action="back">Back</button>
+          <button type="button" class="secondary proxy-topbar-item" data-action="forward">Forward</button>
+          <input type="text" class="proxy-topbar-item" data-proxy-url placeholder="Enter a URL or search" />
+          <button type="button" class="proxy-topbar-item" data-action="exit">Exit</button>
+          <button type="button" class="toggle" data-action="toggle" aria-label="Toggle bar">▴</button>
         </div>`
       );
       const topScript = `
@@ -297,6 +316,7 @@ export async function GET(request) {
           const bar = document.querySelector(".proxy-topbar");
           if (!bar) return;
           const input = bar.querySelector("[data-proxy-url]");
+          let isEditing = false;
           const decode = (token) => {
             try {
               const padded = token.replace(/-/g, "+").replace(/_/g, "/");
@@ -308,29 +328,130 @@ export async function GET(request) {
           };
           const getBase = () => {
             const base = window.__proxyBase;
-            if (!base) return "";
-            if (typeof base === "string" && base.startsWith("e:")) {
-              return decode(base.slice(2)) || base;
+            if (base) {
+              if (typeof base === "string" && base.startsWith("e:")) {
+                return decode(base.slice(2)) || base;
+              }
+              return base;
             }
-            return base;
+            const meta = document.querySelector("meta[name='proxy-base']");
+            if (meta && meta.content) {
+              const raw = meta.content;
+              if (raw.startsWith("e:")) return decode(raw.slice(2)) || raw;
+              return raw;
+            }
+            const htmlBase = document.documentElement && document.documentElement.getAttribute("data-proxy-base");
+            if (htmlBase) {
+              if (htmlBase.startsWith("e:")) return decode(htmlBase.slice(2)) || htmlBase;
+              return htmlBase;
+            }
+            return "";
+          };
+          const getVirtualFromLocation = () => {
+            try {
+              const current = new URL(window.location.href);
+              if (current.pathname.startsWith("/api/preview")) {
+                const encoded = current.searchParams.get("e");
+                if (encoded) return decode(encoded);
+                const inner = current.searchParams.get("url");
+                return inner ? decodeURIComponent(inner) : "";
+              }
+            } catch {}
+            return "";
           };
           const update = () => {
-            const next = window.__proxyVirtualUrl || getBase();
+            if (isEditing) return;
+            const next = window.__proxyVirtualUrl || getVirtualFromLocation() || getBase();
             if (next && input && input.value !== next) {
               input.value = next;
             }
           };
           update();
           setInterval(update, 500);
-          bar.querySelector("[data-action='back']")?.addEventListener("click", () => history.back());
-          bar.querySelector("[data-action='forward']")?.addEventListener("click", () => history.forward());
-          bar.querySelector("[data-action='exit']")?.addEventListener("click", () => {
+          const stop = (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          };
+          bar.addEventListener("click", stop, true);
+          bar.addEventListener("mousedown", stop, true);
+          const toggleButton = bar.querySelector("[data-action='toggle']");
+          const setCollapsed = (next) => {
+            bar.classList.toggle("collapsed", next);
+            if (toggleButton) {
+              toggleButton.textContent = next ? "▾" : "▴";
+            }
+            try {
+              localStorage.setItem("proxy-topbar-collapsed", next ? "1" : "0");
+            } catch {}
+          };
+          let initialCollapsed = false;
+          try {
+            initialCollapsed = localStorage.getItem("proxy-topbar-collapsed") === "1";
+          } catch {}
+          setCollapsed(initialCollapsed);
+          toggleButton?.addEventListener("click", (event) => {
+            stop(event);
+            setCollapsed(!bar.classList.contains("collapsed"));
+          }, true);
+          bar.querySelector("[data-action='back']")?.addEventListener("click", (event) => {
+            stop(event);
+            history.back();
+          }, true);
+          bar.querySelector("[data-action='forward']")?.addEventListener("click", (event) => {
+            stop(event);
+            history.forward();
+          }, true);
+          bar.querySelector("[data-action='exit']")?.addEventListener("click", (event) => {
+            stop(event);
             if (history.length > 1) {
               history.back();
               return;
             }
             window.location.href = "/";
+          }, true);
+          const looksLikeHost = (value) => {
+            if (!value) return false;
+            if (value.includes(" ")) return false;
+            if (value === "localhost") return true;
+            if (/^(?:\\d{1,3}\\.){3}\\d{1,3}$/.test(value)) return true;
+            return value.includes(".");
+          };
+          const normalizeInput = (value) => {
+            if (!value) return "";
+            const trimmed = value.trim();
+            if (!trimmed) return "";
+            if (/^https?:\\/\\//i.test(trimmed)) return trimmed;
+            if (looksLikeHost(trimmed)) return \`https://\${trimmed}\`;
+            return \`https://search.brave.com/search?q=\${encodeURIComponent(trimmed)}&source=web\`;
+          };
+          const buildPreview = (url) => {
+            if (!url) return "";
+            const token = (() => {
+              try {
+                const encoded = btoa(unescape(encodeURIComponent(url)));
+                return encoded.replace(/\\+/g, "-").replace(/\\//g, "_").replace(/=+$/g, "");
+              } catch {
+                return "";
+              }
+            })();
+            if (token) return \`/api/preview?e=\${token}&top=1\`;
+            return \`/api/preview?url=\${encodeURIComponent(url)}&top=1\`;
+          };
+          input?.addEventListener("focus", () => {
+            isEditing = true;
           });
+          input?.addEventListener("blur", () => {
+            isEditing = false;
+            update();
+          });
+          input?.addEventListener("keydown", (event) => {
+            if (event.key !== "Enter") return;
+            stop(event);
+            const next = normalizeInput(input.value);
+            if (!next) return;
+            const preview = buildPreview(next);
+            if (preview) window.location.href = preview;
+          }, true);
         })();
       `;
       $("head").append(
@@ -365,10 +486,23 @@ export async function GET(request) {
       });
     });
 
+    const appendTopParam = (value) => {
+      if (!isTopMode || !value) return value;
+      try {
+        const next = new URL(value, requestUrl.origin);
+        if (!next.searchParams.has("top")) {
+          next.searchParams.set("top", "1");
+        }
+        return next.pathname + next.search + next.hash;
+      } catch {
+        return value.includes("?") ? `${value}&top=1` : `${value}?top=1`;
+      }
+    };
+
     $("a[href]").each((_, element) => {
       const value = $(element).attr("href");
       const rewritten = proxifyDocument(value, baseUrl);
-      if (rewritten) $(element).attr("href", rewritten);
+      if (rewritten) $(element).attr("href", appendTopParam(rewritten));
     });
 
     $("form[action]").each((_, element) => {
@@ -397,7 +531,10 @@ export async function GET(request) {
       const match = content.match(/^(\d+;\s*url=)(.*)$/i);
       if (!match) return;
       const rewrittenUrl = proxifyDocument(match[2], baseUrl);
-      if (rewrittenUrl) $(element).attr("content", `${match[1]}${rewrittenUrl}`);
+      if (rewrittenUrl) {
+        const nextUrl = appendTopParam(rewrittenUrl);
+        $(element).attr("content", `${match[1]}${nextUrl}`);
+      }
     });
 
     await auditLog({

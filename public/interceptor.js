@@ -7,6 +7,14 @@
   const META_BASE_SELECTOR = 'meta[name="proxy-base"]';
   const META_ENCODE_SELECTOR = 'meta[name="proxy-encode"]';
   const PROXY_ASSET_VERSION = "2026-03-12a";
+  const IS_TOP_MODE = (() => {
+    try {
+      const current = new URL(window.location.href);
+      return current.searchParams.get("top") === "1";
+    } catch {
+      return false;
+    }
+  })();
   let lastReportedUrl = "";
   let reportTimer = null;
 
@@ -167,11 +175,26 @@
       const resolved = new URL(value, baseUrl);
       if (!/^https?:$/.test(resolved.protocol)) return value;
       if (isEncodeEnabled()) {
-        return `/api/preview?e=${encodeUrlToken(resolved.toString())}`;
+        const previewUrl = `/api/preview?e=${encodeUrlToken(resolved.toString())}`;
+        return IS_TOP_MODE ? appendTopParam(previewUrl) : previewUrl;
       }
-      return `${PREVIEW_URL}${encodeURIComponent(resolved.toString())}`;
+      const previewUrl = `${PREVIEW_URL}${encodeURIComponent(resolved.toString())}`;
+      return IS_TOP_MODE ? appendTopParam(previewUrl) : previewUrl;
     } catch {
       return value;
+    }
+  }
+
+  function appendTopParam(previewUrl) {
+    if (!IS_TOP_MODE) return previewUrl;
+    try {
+      const next = new URL(previewUrl, window.location.origin);
+      if (!next.searchParams.has("top")) {
+        next.searchParams.set("top", "1");
+      }
+      return next.pathname + next.search + next.hash;
+    } catch {
+      return previewUrl.includes("?") ? `${previewUrl}&top=1` : `${previewUrl}?top=1`;
     }
   }
 
