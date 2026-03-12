@@ -217,6 +217,24 @@ button:hover {
   min-width: 92px;
 }
 
+.controls-actions {
+  display: flex;
+  gap: 10px;
+}
+
+button.reset {
+  background: rgba(231, 236, 242, 0.08);
+  color: var(--ink);
+  border: 1px solid var(--stroke);
+  box-shadow: none;
+}
+
+button.reset:hover {
+  background: rgba(231, 236, 242, 0.14);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.25);
+}
+
 .empty-state {
   display: grid;
   place-items: center;

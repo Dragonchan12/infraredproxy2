@@ -131,6 +131,37 @@ export default function Browser({ whitelistEnabled }) {
     setTabs(newTabs);
   };
 
+  const handleReset = async () => {
+    try {
+      if ("serviceWorker" in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((reg) => reg.unregister()));
+      }
+    } catch {
+      // Ignore SW unregister errors.
+    }
+    try {
+      if ("caches" in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((key) => caches.delete(key)));
+      }
+    } catch {
+      // Ignore cache cleanup errors.
+    }
+    try {
+      localStorage.clear();
+      sessionStorage.clear();
+    } catch {
+      // Ignore storage errors.
+    }
+    try {
+      document.cookie = "proxy-base=; Path=/; Max-Age=0; SameSite=Lax";
+    } catch {
+      // Ignore cookie errors.
+    }
+    window.location.reload();
+  };
+
   useEffect(() => {
     const onMessage = (event) => {
       if (event.origin !== window.location.origin) return;
@@ -197,9 +228,14 @@ export default function Browser({ whitelistEnabled }) {
                 if (event.key === "Enter") handleOpen();
               }}
             />
-            <button type="button" onClick={handleOpen}>
-              Go
-            </button>
+            <div className="controls-actions">
+              <button type="button" onClick={handleOpen}>
+                Go
+              </button>
+              <button type="button" className="reset" onClick={handleReset}>
+                Reset
+              </button>
+            </div>
           </div>
         </div>
       </header>
