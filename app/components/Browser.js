@@ -299,16 +299,6 @@ export default function Browser({ whitelistEnabled, encodeEnabled }) {
       if (event.origin !== window.location.origin) return;
       const data = event.data;
       if (!data || typeof data.type !== "string") return;
-      if (data.type === "proxy:open-top") {
-        const url = typeof data.url === "string" && data.url ? data.url : "";
-        if (!url) return;
-        const preview = getPreviewHref(url);
-        if (preview) {
-          window.location.href = preview;
-          addHistoryEntry(url, getTabTitle(url));
-        }
-        return;
-      }
       if (data.type === "proxy:new-tab") {
         const url = typeof data.url === "string" && data.url ? data.url : DEFAULT_HOME;
         let shouldReuse = false;

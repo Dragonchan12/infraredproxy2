@@ -19,11 +19,7 @@ function buildTargetUrl(pathSegments, requestUrl) {
       }
       return `${base}/${rest}${requestUrl.search || ""}`;
     }
-    try {
-      return `${new URL(decoded).origin}${requestUrl.search || ""}`;
-    } catch {
-      return `${decoded}${requestUrl.search || ""}`;
-    }
+    return decoded;
   }
   const [scheme, host, ...rest] = pathSegments;
   if (!scheme || !host) return "";

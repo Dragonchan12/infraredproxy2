@@ -25,7 +25,15 @@ function isValidProxyPath(pathname) {
   if (pathname.startsWith("/api/p/e/")) {
     const rest = pathname.slice("/api/p/e/".length);
     const token = rest.split("/")[0];
-    return Boolean(token);
+    if (!token) return false;
+    try {
+      const decoded = decodeUrlToken(token);
+      if (!decoded) return false;
+      new URL(decoded);
+      return true;
+    } catch {
+      return false;
+    }
   }
   if (!pathname.startsWith("/api/p/")) return false;
   const rest = pathname.slice("/api/p/".length);
@@ -56,7 +64,7 @@ function getTargetFromProxiedReferrer(referrer) {
         const tail = parts.slice(1).join("/");
         return `${origin}/${tail}${refUrl.search || ""}`;
       }
-      return `${origin}${refUrl.search || ""}`;
+      return `${decoded}${refUrl.search || ""}`;
     }
     if (refUrl.pathname.startsWith("/api/p/")) {
       const rest = refUrl.pathname.slice("/api/p/".length);
@@ -77,14 +85,10 @@ function getTargetFromProxiedReferrer(referrer) {
 
 function buildProxyPath(url) {
   try {
-    const parsed = new URL(url);
     if (isEncodeEnabled()) {
-      const token = encodeUrlToken(parsed.origin);
-      if (!token) return "";
-      const path = parsed.pathname && parsed.pathname !== "/" ? parsed.pathname : "/";
-      const base = `${PROXY_PREFIX}e/${token}${path}`;
-      return parsed.search ? `${base}${parsed.search}` : base;
+      return `${PROXY_PREFIX}e/${encodeUrlToken(url)}`;
     }
+    const parsed = new URL(url);
     const scheme = parsed.protocol.replace(":", "");
     const host = parsed.host;
     const path = parsed.pathname && parsed.pathname !== "/" ? parsed.pathname : "/";
@@ -213,7 +217,9 @@ self.addEventListener("fetch", (event) => {
         );
         const base = referrerTarget || targetBase;
         if (base) {
-          const relPath = reqUrl.pathname.slice("/api/p/".length);
+          const relPath = reqUrl.pathname.startsWith("/api/p/e/")
+            ? reqUrl.pathname.slice("/api/p/e/".length)
+            : reqUrl.pathname.slice("/api/p/".length);
           try {
             const resolved = new URL(`${relPath}${reqUrl.search || ""}`, base).toString();
             const proxied = buildProxyPath(resolved);
