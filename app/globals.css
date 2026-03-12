@@ -1,0 +1,246 @@
+:root {
+  --bg: #0b0d10;
+  --ink: #e7ecf2;
+  --muted: rgba(231, 236, 242, 0.7);
+  --accent: #4ea8ff;
+  --accent-2: #7b5bff;
+  --panel: #131821;
+  --panel-2: #0f141c;
+  --stroke: rgba(231, 236, 242, 0.12);
+  --shadow: rgba(0, 0, 0, 0.45);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+  min-height: 100%;
+  color: var(--ink);
+  background: var(--bg);
+  font-family: var(--font-body), "Segoe UI", Tahoma, sans-serif;
+}
+
+body {
+  background-image:
+    radial-gradient(circle at 15% 15%, rgba(78, 168, 255, 0.18), transparent 45%),
+    radial-gradient(circle at 85% 0%, rgba(123, 91, 255, 0.18), transparent 40%),
+    linear-gradient(135deg, rgba(11, 13, 16, 0.95), rgba(10, 12, 18, 0.98));
+  overflow: hidden;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.app-shell {
+  min-height: 100vh;
+  width: 100vw;
+  display: flex;
+  padding: 0;
+  margin: 0;
+}
+
+.panel {
+  background: var(--panel);
+  border-radius: 18px;
+  box-shadow: 0 24px 60px var(--shadow);
+  padding: 16px;
+  border: 1px solid var(--stroke);
+}
+
+.controls {
+  display: grid;
+  gap: 12px;
+}
+
+.controls label {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.controls-row {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr auto;
+}
+
+input[type="text"] {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid var(--stroke);
+  padding: 12px 14px;
+  font-size: 1rem;
+  font-family: var(--font-body), "Segoe UI", Tahoma, sans-serif;
+  background: var(--panel-2);
+  color: var(--ink);
+}
+
+button {
+  border: none;
+  padding: 12px 18px;
+  border-radius: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #fff;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 20px rgba(228, 87, 46, 0.25);
+}
+
+.viewer {
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid var(--stroke);
+  background: #000;
+  min-height: 0;
+  flex: 1;
+}
+
+.viewer iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: #000;
+}
+
+/* Browser UI */
+.browser-shell {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  width: 100%;
+  height: 100vh;
+  grid-template-rows: auto 1fr;
+}
+
+.browser-top {
+  display: grid;
+  gap: 12px;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px;
+  border-radius: 14px;
+  background: var(--panel);
+  border: 1px solid var(--stroke);
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  background: var(--panel-2);
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: 0 2px 4px var(--shadow);
+  border: 1px solid var(--stroke);
+}
+
+.tab-select {
+  padding: 8px 12px;
+  background: transparent;
+  color: var(--ink);
+  box-shadow: none;
+  border-radius: 6px;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tab-select:hover {
+  background: rgba(255, 255, 255, 0.08);
+  transform: none;
+  box-shadow: none;
+}
+
+.tab.active .tab-select {
+  background: rgba(78, 168, 255, 0.2);
+  color: #fff;
+}
+
+.tab-close {
+  padding: 4px;
+  width: 24px;
+  height: 24px;
+  font-size: 1.2rem;
+  line-height: 1;
+  background: transparent;
+  color: var(--ink);
+  box-shadow: none;
+  border-radius: 6px;
+}
+
+.tab-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: none;
+  box-shadow: none;
+}
+
+.new-tab {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 1.5rem;
+  line-height: 1;
+  padding: 0;
+  box-shadow: none;
+}
+
+.controls {
+  padding: 12px;
+  border-radius: 16px;
+  background: var(--panel);
+}
+
+.controls-row button {
+  min-width: 92px;
+}
+
+.empty-state {
+  display: grid;
+  place-items: center;
+  min-height: 100%;
+  text-align: center;
+  color: var(--muted);
+}
+
+.content {
+  background: var(--panel);
+  border-radius: 18px;
+  box-shadow: 0 24px 60px var(--shadow);
+  padding: 20px;
+  border: 1px solid var(--stroke);
+  min-height: 60vh;
+}
+
+@media (max-width: 720px) {
+  .controls-row {
+    grid-template-columns: 1fr;
+  }
+
+  button {
+    width: 100%;
+  }
+
+  .tabs {
+    flex-wrap: wrap;
+  }
+}
+
