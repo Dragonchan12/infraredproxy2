@@ -12,7 +12,6 @@ self.addEventListener("activate", (event) => {
 function isBypassPath(pathname) {
   return (
     pathname.startsWith("/api/") ||
-    pathname.startsWith("/_next/") ||
     pathname.startsWith("/favicon") ||
     pathname === "/interceptor.js" ||
     pathname === "/proxy-sw.js"
@@ -65,9 +64,6 @@ async function getClientTargetBase(clientId) {
 self.addEventListener("fetch", (event) => {
   const reqUrl = new URL(event.request.url);
 
-  // Never intercept the proxy itself or Next assets.
-  if (reqUrl.origin === self.location.origin && isBypassPath(reqUrl.pathname)) return;
-
   event.respondWith((async () => {
     const isNavigation = event.request.mode === "navigate";
     let targetBase = await getClientTargetBase(event.clientId);
@@ -77,6 +73,12 @@ self.addEventListener("fetch", (event) => {
         getPreviewTargetFromReferrer(event.request.headers.get("referer"));
     }
     const isSameOrigin = reqUrl.origin === self.location.origin;
+    if (isSameOrigin) {
+      if (isBypassPath(reqUrl.pathname)) return fetch(event.request);
+      if (reqUrl.pathname.startsWith("/_next/") && !targetBase) {
+        return fetch(event.request);
+      }
+    }
     const canProxyDirect = !isSameOrigin && /^https?:$/.test(reqUrl.protocol);
     if (!targetBase && !canProxyDirect) {
       return fetch(event.request);
