@@ -4,6 +4,8 @@ import {
   appendSetCookies,
   buildUpstreamHeaders,
   checkRateLimit,
+  decodeUrlToken,
+  encodeUrlToken,
   getClientIp,
   parseAndValidateTarget,
   proxify,
@@ -32,6 +34,13 @@ function unwrapPreviewUrl(rawUrl, requestOrigin) {
     try {
       const parsed = new URL(current);
       if (parsed.pathname === "/api/preview") {
+        const encoded = parsed.searchParams.get("e");
+        if (encoded) {
+          const decoded = decodeUrlToken(encoded);
+          if (!decoded) break;
+          current = decoded;
+          continue;
+        }
         const inner = parsed.searchParams.get("url");
         if (!inner) break;
         current = inner;
@@ -65,15 +74,23 @@ export async function GET(request) {
     const requestUrl = new URL(request.url);
     let rawUrl = requestUrl.searchParams.get("url");
     if (!rawUrl) {
+      const encoded = requestUrl.searchParams.get("e");
+      if (encoded) {
+        rawUrl = decodeUrlToken(encoded);
+      }
+    }
+    if (!rawUrl) {
       const referer = request.headers.get("referer");
       if (referer) {
         try {
           const refUrl = new URL(referer);
-          const refTarget = refUrl.searchParams.get("url");
+          const refEncoded = refUrl.searchParams.get("e");
+          const refTarget = refEncoded ? decodeUrlToken(refEncoded) : refUrl.searchParams.get("url");
           if (refTarget) {
             const base = new URL(refTarget);
             const nextSearch = new URLSearchParams(requestUrl.searchParams);
             nextSearch.delete("url");
+            nextSearch.delete("e");
             if ([...nextSearch.keys()].length > 0) {
               base.search = nextSearch.toString();
             }
@@ -91,6 +108,7 @@ export async function GET(request) {
           const base = new URL(cookieBase);
           const nextSearch = new URLSearchParams(requestUrl.searchParams);
           nextSearch.delete("url");
+          nextSearch.delete("e");
           if ([...nextSearch.keys()].length > 0) {
             base.search = nextSearch.toString();
           }
@@ -167,7 +185,10 @@ export async function GET(request) {
     $("base").remove();
     const baseUrl = validation.url.toString();
     const safeBaseUrl = baseUrl.replace(/"/g, "&quot;");
-    const proxyOriginPrefix = `/api/p/${validation.url.protocol.replace(":", "")}/${validation.url.host}`;
+    const encodeEnabled = (process.env.PROXY_ENCODE_URLS || "").trim().toLowerCase() === "true";
+    const proxyOriginPrefix = encodeEnabled
+      ? `/api/p/e/${encodeUrlToken(validation.url.origin)}`
+      : `/api/p/${validation.url.protocol.replace(":", "")}/${validation.url.host}`;
     const proxyBase = proxify(baseUrl, baseUrl);
     if (proxyBase) {
       const safeProxyBase = proxyBase.replace(/"/g, "&quot;");
@@ -177,6 +198,12 @@ export async function GET(request) {
     $("head").prepend(
       `<script data-proxy-static="1">window.__proxyBase=${JSON.stringify(baseUrl)};</script>`
     );
+    if (encodeEnabled) {
+      $("head").prepend('<meta name="proxy-encode" content="1">');
+      $("head").prepend(
+        `<script data-proxy-static="1">window.__proxyEncode=true;</script>`
+      );
+    }
     const nextData = $("script#__NEXT_DATA__");
     if (nextData.length) {
       try {
@@ -271,6 +298,9 @@ export async function GET(request) {
       "set-cookie",
       `proxy-base=${encodeURIComponent(validation.url.toString())}; Path=/; SameSite=Lax`
     );
+    if (encodeEnabled) {
+      responseHeaders.append("set-cookie", "proxy-encode=1; Path=/; SameSite=Lax");
+    }
     // Intentionally omit CSP here to avoid breaking complex sites (e.g., YouTube).
 
     return new Response($.html(), {

@@ -12,20 +12,68 @@ function isInternalPath(pathname) {
   return INTERNAL_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 }
 
-function buildProxyPath(targetUrl) {
+function shouldEncodeUrls() {
+  return (process.env.PROXY_ENCODE_URLS || "").trim().toLowerCase() === "true";
+}
+
+function encodeUrlToken(url) {
   try {
-    const parsed = new URL(targetUrl);
-    const scheme = parsed.protocol.replace(":", "");
-    const host = parsed.host;
-    const path = parsed.pathname && parsed.pathname !== "/" ? parsed.pathname : "/";
-    const base = `/api/p/${scheme}/${host}${path}`;
-    return parsed.search ? `${base}${parsed.search}` : base;
+    const encoded = btoa(unescape(encodeURIComponent(url)));
+    return encoded.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
   } catch {
     return "";
   }
 }
 
+function decodeUrlToken(token) {
+  if (!token) return "";
+  try {
+    const padded = token.replace(/-/g, "+").replace(/_/g, "/");
+    const pad = padded.padEnd(Math.ceil(padded.length / 4) * 4, "=");
+    return decodeURIComponent(escape(atob(pad)));
+  } catch {
+    return "";
+  }
+}
+
+function buildProxyPath(targetUrl) {
+  try {
+    const parsed = new URL(targetUrl);
+    if (shouldEncodeUrls()) {
+      const token = encodeUrlToken(parsed.toString());
+      if (token) {
+        return { pathname: `/api/p/e/${token}`, search: "" };
+      }
+    }
+    const scheme = parsed.protocol.replace(":", "");
+    const host = parsed.host;
+    const path = parsed.pathname && parsed.pathname !== "/" ? parsed.pathname : "/";
+    return { pathname: `/api/p/${scheme}/${host}${path}`, search: parsed.search || "" };
+  } catch {
+    return null;
+  }
+}
+
+function buildPreviewSearch(targetUrl) {
+  if (shouldEncodeUrls()) {
+    const token = encodeUrlToken(targetUrl);
+    if (token) return `?e=${token}`;
+  }
+  return `?url=${encodeURIComponent(targetUrl)}`;
+}
+
 function parseTargetFromProxiedPath(pathname) {
+  if (pathname.startsWith("/api/p/e/")) {
+    const rest = pathname.slice("/api/p/e/".length);
+    const token = rest.split("/")[0];
+    const decoded = decodeUrlToken(token);
+    if (!decoded) return null;
+    try {
+      return new URL(decoded).origin;
+    } catch {
+      return null;
+    }
+  }
   if (!pathname.startsWith("/api/p/")) return null;
   const rest = pathname.slice("/api/p/".length);
   const parts = rest.split("/");
@@ -40,8 +88,15 @@ function getTargetBaseFromReferer(referer) {
   if (!referer) return null;
   try {
     const refUrl = new URL(referer);
-    const target = refUrl.searchParams.get("url");
-    if (target) return new URL(target);
+    if (refUrl.pathname.startsWith("/api/preview")) {
+      const encoded = refUrl.searchParams.get("e");
+      if (encoded) {
+        const decoded = decodeUrlToken(encoded);
+        if (decoded) return new URL(decoded);
+      }
+      const target = refUrl.searchParams.get("url");
+      if (target) return new URL(target);
+    }
     const proxiedOrigin = parseTargetFromProxiedPath(refUrl.pathname);
     if (proxiedOrigin) return new URL(proxiedOrigin);
   } catch {
@@ -76,16 +131,16 @@ export function middleware(request) {
   if (shouldPreview) {
     const previewUrl = new URL(request.url);
     previewUrl.pathname = "/api/preview";
-    previewUrl.search = `?url=${encodeURIComponent(targetUrl)}`;
+    previewUrl.search = buildPreviewSearch(targetUrl);
     return NextResponse.redirect(previewUrl);
   }
 
   const proxyPath = buildProxyPath(targetUrl);
   if (!proxyPath) return NextResponse.next();
   const proxyUrl = new URL(request.url);
-  proxyUrl.pathname = proxyPath;
-  proxyUrl.search = "";
-  return NextResponse.redirect(proxyUrl);
+  proxyUrl.pathname = proxyPath.pathname;
+  proxyUrl.search = proxyPath.search || "";
+  return NextResponse.rewrite(proxyUrl);
 }
 
 export const config = {

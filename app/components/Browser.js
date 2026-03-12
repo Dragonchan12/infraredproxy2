@@ -46,7 +46,27 @@ function normalizeInput(value) {
   return makeSearchUrl(trimmed);
 }
 
-export default function Browser({ whitelistEnabled }) {
+function encodeUrlToken(url) {
+  try {
+    const encoded = btoa(unescape(encodeURIComponent(url)));
+    return encoded.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  } catch {
+    return "";
+  }
+}
+
+function decodeUrlToken(token) {
+  if (!token) return "";
+  try {
+    const padded = token.replace(/-/g, "+").replace(/_/g, "/");
+    const pad = padded.padEnd(Math.ceil(padded.length / 4) * 4, "=");
+    return decodeURIComponent(escape(atob(pad)));
+  } catch {
+    return "";
+  }
+}
+
+export default function Browser({ whitelistEnabled, encodeEnabled }) {
   const [tabs, setTabs] = useState([
     { id: 1, title: "search.brave.com", url: DEFAULT_HOME, iframeUrl: DEFAULT_HOME },
   ]);
@@ -58,8 +78,12 @@ export default function Browser({ whitelistEnabled }) {
   const activeTab = useMemo(() => tabs.find((tab) => tab.id === activeTabId), [tabs, activeTabId]);
   const getIframeSrc = useCallback((url) => {
     if (!url) return "";
+    if (encodeEnabled) {
+      const token = encodeUrlToken(url);
+      if (token) return `/api/preview?e=${token}`;
+    }
     return `/api/preview?url=${encodeURIComponent(url)}`;
-  }, []);
+  }, [encodeEnabled]);
 
   const getTabTitle = useCallback((url) => {
     if (!url) return "New Tab";
@@ -77,8 +101,14 @@ export default function Browser({ whitelistEnabled }) {
     try {
       const parsed = new URL(url, window.location.origin);
       if (parsed.pathname.startsWith("/api/preview")) {
-        const inner = parsed.searchParams.get("url");
-        if (inner) finalUrl = decodeURIComponent(inner);
+        const encoded = parsed.searchParams.get("e");
+        if (encoded) {
+          const decoded = decodeUrlToken(encoded);
+          if (decoded) finalUrl = decoded;
+        } else {
+          const inner = parsed.searchParams.get("url");
+          if (inner) finalUrl = decodeURIComponent(inner);
+        }
       }
     } catch {
       // Ignore invalid URLs.

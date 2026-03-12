@@ -5,6 +5,7 @@
   const PREVIEW_URL = '/api/preview?url=';
   const PREVIEW_PARAM = 'url';
   const META_BASE_SELECTOR = 'meta[name="proxy-base"]';
+  const META_ENCODE_SELECTOR = 'meta[name="proxy-encode"]';
   let lastReportedUrl = "";
   let reportTimer = null;
 
@@ -50,6 +51,9 @@
 
   function buildProxyPath(url) {
     try {
+      if (isEncodeEnabled()) {
+        return `/api/p/e/${encodeUrlToken(url)}`;
+      }
       const parsed = new URL(url);
       const scheme = parsed.protocol.replace(":", "");
       const host = parsed.host;
@@ -124,9 +128,32 @@
     try {
       const resolved = new URL(value, baseUrl);
       if (!/^https?:$/.test(resolved.protocol)) return value;
+      if (isEncodeEnabled()) {
+        return `/api/preview?e=${encodeUrlToken(resolved.toString())}`;
+      }
       return `${PREVIEW_URL}${encodeURIComponent(resolved.toString())}`;
     } catch {
       return value;
+    }
+  }
+
+  function encodeUrlToken(url) {
+    try {
+      const encoded = btoa(unescape(encodeURIComponent(url)));
+      return encoded.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+    } catch {
+      return "";
+    }
+  }
+
+  function decodeUrlToken(token) {
+    if (!token) return "";
+    try {
+      const padded = token.replace(/-/g, "+").replace(/_/g, "/");
+      const pad = padded.padEnd(Math.ceil(padded.length / 4) * 4, "=");
+      return decodeURIComponent(escape(atob(pad)));
+    } catch {
+      return "";
     }
   }
 
@@ -135,6 +162,8 @@
     try {
       const parsed = new URL(raw, window.location.origin);
       if (!parsed.pathname.startsWith("/api/preview")) return "";
+      const encoded = parsed.searchParams.get("e");
+      if (encoded) return decodeUrlToken(encoded);
       const inner = parsed.searchParams.get(PREVIEW_PARAM);
       return inner ? decodeURIComponent(inner) : "";
     } catch {
@@ -158,10 +187,30 @@
     return document.baseURI;
   }
 
+  function isEncodeEnabled() {
+    if (window.__proxyEncode) return true;
+    const meta = document.querySelector(META_ENCODE_SELECTOR);
+    if (meta && meta.content) {
+      if (meta.content === "1" || meta.content.toLowerCase() === "true") {
+        window.__proxyEncode = true;
+        return true;
+      }
+    }
+    return false;
+  }
+
   function getVirtualUrl() {
     if (window.__proxyVirtualUrl) return window.__proxyVirtualUrl;
     try {
       const current = new URL(window.location.href);
+      const encoded = current.searchParams.get("e");
+      if (encoded) {
+        const decoded = decodeUrlToken(encoded);
+        if (decoded) {
+          window.__proxyVirtualUrl = decoded;
+          return window.__proxyVirtualUrl;
+        }
+      }
       const inner = current.searchParams.get(PREVIEW_PARAM);
       if (inner) {
         window.__proxyVirtualUrl = decodeURIComponent(inner);
