@@ -146,6 +146,7 @@ export async function GET(request) {
     $("base").remove();
     const baseUrl = validation.url.toString();
     const safeBaseUrl = baseUrl.replace(/"/g, "&quot;");
+    const proxyOriginPrefix = `/api/p/${validation.url.protocol.replace(":", "")}/${validation.url.host}`;
     const proxyBase = proxify(baseUrl, baseUrl);
     if (proxyBase) {
       const safeProxyBase = proxyBase.replace(/"/g, "&quot;");
@@ -155,6 +156,16 @@ export async function GET(request) {
     $("head").prepend(
       `<script data-proxy-static="1">window.__proxyBase=${JSON.stringify(baseUrl)};</script>`
     );
+    const nextData = $("script#__NEXT_DATA__");
+    if (nextData.length) {
+      try {
+        const json = JSON.parse(nextData.text());
+        json.assetPrefix = proxyOriginPrefix;
+        nextData.text(JSON.stringify(json));
+      } catch {
+        // Ignore malformed __NEXT_DATA__.
+      }
+    }
     $("head").prepend('<script src="/interceptor.js" data-proxy-static="1"></script>');
     $("head").prepend(`<meta name="proxy-base" content="${safeBaseUrl}">`);
     $("head").prepend('<meta name="referrer" content="same-origin">');
