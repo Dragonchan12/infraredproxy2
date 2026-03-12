@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 function Tab({ title, onSelect, onClose, isActive }) {
   return (
@@ -15,7 +15,11 @@ function Tab({ title, onSelect, onClose, isActive }) {
   );
 }
 
-const DEFAULT_HOME = "https://duckduckgo.com/";
+const DEFAULT_HOME = "https://search.brave.com/";
+
+function makeSearchUrl(query) {
+  return `https://search.brave.com/search?q=${encodeURIComponent(query)}&source=web`;
+}
 
 function isIpAddress(input) {
   return /^(?:\d{1,3}\.){3}\d{1,3}$/.test(input);
@@ -39,12 +43,12 @@ function normalizeInput(value) {
   if (looksLikeHost(trimmed)) {
     return `https://${trimmed}`;
   }
-  return `${DEFAULT_HOME}?q=${encodeURIComponent(trimmed)}`;
+  return makeSearchUrl(trimmed);
 }
 
 export default function Browser({ whitelistEnabled }) {
   const [tabs, setTabs] = useState([
-    { id: 1, title: "duckduckgo.com", url: DEFAULT_HOME },
+    { id: 1, title: "search.brave.com", url: DEFAULT_HOME },
   ]);
   const [activeTabId, setActiveTabId] = useState(1);
   const nextIdRef = useRef(2);
@@ -57,7 +61,7 @@ export default function Browser({ whitelistEnabled }) {
     return `/api/preview?url=${encodeURIComponent(activeTab.url)}`;
   }, [activeTab]);
 
-  const getTabTitle = (url) => {
+  const getTabTitle = useCallback((url) => {
     if (!url) return "New Tab";
     try {
       const parsed = new URL(url);
@@ -65,19 +69,24 @@ export default function Browser({ whitelistEnabled }) {
     } catch {
       return url;
     }
-  };
+  }, []);
 
-  const handleNewTab = () => {
+  const openTabWithUrl = useCallback((url) => {
     const nextId = nextIdRef.current++;
-    const newTab = { id: nextId, title: "duckduckgo.com", url: DEFAULT_HOME };
+    const title = getTabTitle(url);
+    const newTab = { id: nextId, title, url };
     setTabs((prev) => [...prev, newTab]);
     setActiveTabId(nextId);
-    setInput(DEFAULT_HOME);
+    setInput(url);
+  }, [getTabTitle]);
+
+  const handleNewTab = () => {
+    openTabWithUrl(DEFAULT_HOME);
   };
 
   const handleCloseTab = (id) => {
     if (tabs.length === 1) {
-      setTabs([{ id: 1, title: "duckduckgo.com", url: DEFAULT_HOME }]);
+      setTabs([{ id: 1, title: "search.brave.com", url: DEFAULT_HOME }]);
       setActiveTabId(1);
       nextIdRef.current = 2;
       setInput(DEFAULT_HOME);
@@ -100,7 +109,7 @@ export default function Browser({ whitelistEnabled }) {
     setInput(selectedTab?.url || "");
   };
 
-    const handleOpen = () => {
+  const handleOpen = () => {
     const normalized = normalizeInput(input);
     if (!normalized) return;
     const newTabs = tabs.map((tab) => {
@@ -111,6 +120,18 @@ export default function Browser({ whitelistEnabled }) {
     });
     setTabs(newTabs);
   };
+
+  useEffect(() => {
+    const onMessage = (event) => {
+      if (event.origin !== window.location.origin) return;
+      const data = event.data;
+      if (!data || data.type !== "proxy:new-tab") return;
+      const url = typeof data.url === "string" && data.url ? data.url : DEFAULT_HOME;
+      openTabWithUrl(url);
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [openTabWithUrl]);
 
   return (
     <div className="browser-shell">
@@ -134,7 +155,7 @@ export default function Browser({ whitelistEnabled }) {
             <input
               id="target"
               type="text"
-              placeholder="Enter a URL or search with DuckDuckGo"
+              placeholder="Enter a URL or search with Brave"
               value={input}
               onChange={(event) => setInput(event.target.value)}
               onKeyDown={(event) => {

@@ -25,6 +25,26 @@ function getProxyBaseFromCookies(cookieHeader) {
   return "";
 }
 
+function unwrapPreviewUrl(rawUrl, requestOrigin) {
+  let current = rawUrl;
+  for (let i = 0; i < 5; i++) {
+    if (!current) break;
+    try {
+      const parsed = new URL(current);
+      if (parsed.pathname === "/api/preview") {
+        const inner = parsed.searchParams.get("url");
+        if (!inner) break;
+        current = inner;
+        continue;
+      }
+    } catch {
+      // Ignore invalid URLs.
+    }
+    break;
+  }
+  return current;
+}
+
 function rewriteSrcset(srcset, baseUrl) {
   if (!srcset) return srcset;
   if (/(data:|blob:)/i.test(srcset)) return srcset;
@@ -80,6 +100,7 @@ export async function GET(request) {
         }
       }
     }
+    rawUrl = unwrapPreviewUrl(rawUrl, requestUrl.origin);
     const validation = parseAndValidateTarget(rawUrl);
 
     if (!validation.ok) {

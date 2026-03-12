@@ -19,6 +19,17 @@
     const trimmed = value.trim();
     if (!trimmed) return false;
     const origin = window.location.origin;
+    try {
+      const parsed = new URL(trimmed, origin);
+      if (
+        parsed.pathname.startsWith("/api/preview") ||
+        parsed.pathname.startsWith("/api/p/")
+      ) {
+        return false;
+      }
+    } catch {
+      // Ignore URL parsing for non-URL strings.
+    }
     if (
       trimmed.startsWith(origin + PROXY_URL) ||
       trimmed.startsWith(origin + "/api/p/") ||
@@ -211,6 +222,17 @@
     const originalOpen = window.open;
     window.open = function(url, target, features) {
       const rewrittenUrl = url ? proxifyDocument(url, getBaseUrl()) : url;
+      if (window.parent && window.parent !== window) {
+        try {
+          window.parent.postMessage(
+            { type: "proxy:new-tab", url: rewrittenUrl },
+            window.location.origin
+          );
+          return null;
+        } catch {
+          // Fall back to real window open.
+        }
+      }
       return originalOpen.call(this, rewrittenUrl, target, features);
     };
   }
@@ -253,9 +275,24 @@
       if (!target) return;
       if (event.defaultPrevented) return;
       if (event.button !== 0) return;
-      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const isNewTabRequest =
+        target.getAttribute("target") === "_blank" ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey;
       const href = target.getAttribute("href");
       const rewritten = proxifyDocument(href, getBaseUrl());
+      if (isNewTabRequest && rewritten) {
+        event.preventDefault();
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage(
+            { type: "proxy:new-tab", url: rewritten },
+            window.location.origin
+          );
+        }
+        return;
+      }
       if (rewritten && rewritten !== href) {
         event.preventDefault();
         window.location.href = rewritten;
