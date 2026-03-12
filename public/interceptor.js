@@ -6,8 +6,15 @@
   const PREVIEW_PARAM = 'url';
   const META_BASE_SELECTOR = 'meta[name="proxy-base"]';
   const META_ENCODE_SELECTOR = 'meta[name="proxy-encode"]';
+  const FRAME_BYPASS_HOSTS = [
+    "accounts.google.com",
+    "consent.google.com",
+    "youtube.com",
+    "www.youtube.com"
+  ];
   let lastReportedUrl = "";
   let reportTimer = null;
+  let lastBypassUrl = "";
 
   function shouldRewrite(value) {
     if (!value) return false;
@@ -47,6 +54,47 @@
     if (trimmed.startsWith("#")) return false;
     if (/^(data:|javascript:|mailto:|tel:)/i.test(trimmed)) return false;
     return true;
+  }
+
+  function hostMatches(host, entry) {
+    if (!host || !entry) return false;
+    if (entry.startsWith("*.")) {
+      const suffix = entry.slice(2);
+      return host === suffix || host.endsWith(`.${suffix}`);
+    }
+    return host === entry;
+  }
+
+  function shouldBypassFrame(value, baseUrl) {
+    try {
+      const resolved = new URL(value, baseUrl || window.location.origin);
+      const host = resolved.hostname.toLowerCase();
+      return FRAME_BYPASS_HOSTS.some((entry) => hostMatches(host, entry));
+    } catch {
+      return false;
+    }
+  }
+
+  function requestTopLevel(url) {
+    if (!url) return;
+    if (url === lastBypassUrl) return;
+    lastBypassUrl = url;
+    if (window.parent && window.parent !== window) {
+      try {
+        window.parent.postMessage(
+          { type: "proxy:open-top", url },
+          window.location.origin
+        );
+        return;
+      } catch {
+        // Fall through to local navigation.
+      }
+    }
+    try {
+      window.location.href = proxifyDocument(url, getBaseUrl());
+    } catch {
+      // Ignore navigation errors.
+    }
   }
 
   function buildProxyPath(url) {
@@ -128,6 +176,10 @@
     try {
       const resolved = new URL(value, baseUrl);
       if (!/^https?:$/.test(resolved.protocol)) return value;
+      if (shouldBypassFrame(resolved.toString(), baseUrl)) {
+        requestTopLevel(resolved.toString());
+        return "about:blank";
+      }
       if (isEncodeEnabled()) {
         return `/api/preview?e=${encodeUrlToken(resolved.toString())}`;
       }
@@ -299,6 +351,16 @@
           (isAnchor && attr === "href") ||
           (isFrame && attr === "src") ||
           (isForm && attr === "action" && method === "get");
+        if (usePreview && isFrame && shouldBypassFrame(value, baseUrl)) {
+          try {
+            const resolved = new URL(value, baseUrl).toString();
+            requestTopLevel(resolved);
+          } catch {
+            // Ignore resolution errors.
+          }
+          el.setAttribute(attr, "about:blank");
+          return;
+        }
         const rewritten = usePreview ? proxifyDocument(value, baseUrl) : proxify(value, baseUrl);
         if (rewritten && rewritten !== value) {
           el.setAttribute(attr, rewritten);
@@ -389,6 +451,10 @@
     const originalOpen = window.open;
     window.open = function(url, target, features) {
       const resolved = url ? resolveVirtualUrl(url) : "";
+      if (resolved && shouldBypassFrame(resolved, getBaseUrl())) {
+        requestTopLevel(resolved);
+        return null;
+      }
       const rewrittenUrl = url ? proxifyDocument(url, getBaseUrl()) : url;
       if (window.parent && window.parent !== window) {
         try {
@@ -412,6 +478,10 @@
       locationProto.assign = function(url) {
         const nextVirtual = resolveVirtualUrl(url);
         if (nextVirtual) setVirtualUrl(nextVirtual);
+        if (nextVirtual && shouldBypassFrame(nextVirtual, getBaseUrl())) {
+          requestTopLevel(nextVirtual);
+          return;
+        }
         return originalAssign.call(this, proxifyDocument(url, getBaseUrl()));
       };
     }
@@ -427,6 +497,10 @@
           set: function(url) {
             const nextVirtual = resolveVirtualUrl(url);
             if (nextVirtual) setVirtualUrl(nextVirtual);
+            if (nextVirtual && shouldBypassFrame(nextVirtual, getBaseUrl())) {
+              requestTopLevel(nextVirtual);
+              return;
+            }
             return hrefDescriptor.set.call(this, proxifyDocument(url, getBaseUrl()));
           },
         });
@@ -452,6 +526,10 @@
             ? function(url) {
                 const nextVirtual = resolveVirtualUrl(url);
                 if (nextVirtual) setVirtualUrl(nextVirtual);
+                if (nextVirtual && shouldBypassFrame(nextVirtual, getBaseUrl())) {
+                  requestTopLevel(nextVirtual);
+                  return;
+                }
                 return descriptor.set.call(this, proxifyDocument(url, getBaseUrl()));
               }
             : undefined,
@@ -463,6 +541,10 @@
       locationProto.replace = function(url) {
         const nextVirtual = resolveVirtualUrl(url);
         if (nextVirtual) setVirtualUrl(nextVirtual);
+        if (nextVirtual && shouldBypassFrame(nextVirtual, getBaseUrl())) {
+          requestTopLevel(nextVirtual);
+          return;
+        }
         return originalReplace.call(this, proxifyDocument(url, getBaseUrl()));
       };
     }
@@ -519,6 +601,11 @@
       const href = target.getAttribute("href");
       const rewritten = proxifyDocument(href, getBaseUrl());
       const resolved = resolveVirtualUrl(href);
+      if (resolved && shouldBypassFrame(resolved, getBaseUrl())) {
+        event.preventDefault();
+        requestTopLevel(resolved);
+        return;
+      }
       if (isNewTabRequest && rewritten) {
         event.preventDefault();
         if (window.parent && window.parent !== window) {

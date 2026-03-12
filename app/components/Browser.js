@@ -96,7 +96,9 @@ export default function Browser({ whitelistEnabled, encodeEnabled }) {
   const [branding, setBranding] = useState({
     iconUrl: "",
     title: "Controlled Proxy",
+    hideAddress: true,
   });
+  const [addressFocused, setAddressFocused] = useState(false);
 
   const activeTab = useMemo(
     () => tabs.find((tab) => tab.id === activeTabId),
@@ -104,6 +106,18 @@ export default function Browser({ whitelistEnabled, encodeEnabled }) {
   );
 
   const getIframeSrc = useCallback(
+    (url) => {
+      if (!url) return "";
+      if (encodeEnabled) {
+        const token = encodeUrlToken(url);
+        if (token) return `/api/preview?e=${token}`;
+      }
+      return `/api/preview?url=${encodeURIComponent(url)}`;
+    },
+    [encodeEnabled]
+  );
+
+  const getPreviewHref = useCallback(
     (url) => {
       if (!url) return "";
       if (encodeEnabled) {
@@ -285,6 +299,16 @@ export default function Browser({ whitelistEnabled, encodeEnabled }) {
       if (event.origin !== window.location.origin) return;
       const data = event.data;
       if (!data || typeof data.type !== "string") return;
+      if (data.type === "proxy:open-top") {
+        const url = typeof data.url === "string" && data.url ? data.url : "";
+        if (!url) return;
+        const preview = getPreviewHref(url);
+        if (preview) {
+          window.location.href = preview;
+          addHistoryEntry(url, getTabTitle(url));
+        }
+        return;
+      }
       if (data.type === "proxy:new-tab") {
         const url = typeof data.url === "string" && data.url ? data.url : DEFAULT_HOME;
         openTabWithUrl(url);
@@ -316,7 +340,7 @@ export default function Browser({ whitelistEnabled, encodeEnabled }) {
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [openTabWithUrl, getTabTitle, activeTabId, updateTabHistory, addHistoryEntry]);
+  }, [openTabWithUrl, getTabTitle, activeTabId, updateTabHistory, addHistoryEntry, getPreviewHref]);
 
   const handleBack = () => {
     const current = activeTab;
@@ -467,6 +491,10 @@ export default function Browser({ whitelistEnabled, encodeEnabled }) {
               typeof parsedSettings.title === "string"
                 ? parsedSettings.title
                 : prev.title,
+            hideAddress:
+              typeof parsedSettings.hideAddress === "boolean"
+                ? parsedSettings.hideAddress
+                : prev.hideAddress,
           }));
         }
       }
@@ -519,6 +547,9 @@ export default function Browser({ whitelistEnabled, encodeEnabled }) {
     }
   }, [branding.iconUrl]);
 
+  const addressValue =
+    branding.hideAddress && !addressFocused ? "" : input;
+
   return (
     <div className="browser-shell">
       <header className="browser-top">
@@ -563,11 +594,13 @@ export default function Browser({ whitelistEnabled, encodeEnabled }) {
               id="target"
               type="text"
               placeholder="Enter a URL or search with Brave"
-              value={input}
+              value={addressValue}
               onChange={(event) => setInput(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === "Enter") handleOpen();
               }}
+              onFocus={() => setAddressFocused(true)}
+              onBlur={() => setAddressFocused(false)}
             />
             <div className="controls-actions">
               <button type="button" onClick={handleOpen}>
@@ -604,6 +637,18 @@ export default function Browser({ whitelistEnabled, encodeEnabled }) {
                 onChange={(event) => setBranding((prev) => ({ ...prev, iconUrl: event.target.value }))}
                 placeholder="https://example.com/icon.png"
               />
+              <label htmlFor="hideAddress">Hide address bar</label>
+              <div className="settings-toggle">
+                <input
+                  id="hideAddress"
+                  type="checkbox"
+                  checked={branding.hideAddress}
+                  onChange={(event) =>
+                    setBranding((prev) => ({ ...prev, hideAddress: event.target.checked }))
+                  }
+                />
+                <span>Mask current site info until focused</span>
+              </div>
             </div>
           </div>
         )}

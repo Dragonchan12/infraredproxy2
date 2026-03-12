@@ -21,6 +21,55 @@ function isBypassPath(pathname) {
   );
 }
 
+function isValidProxyPath(pathname) {
+  if (pathname.startsWith("/api/p/e/")) {
+    const rest = pathname.slice("/api/p/e/".length);
+    const token = rest.split("/")[0];
+    return Boolean(token);
+  }
+  if (!pathname.startsWith("/api/p/")) return false;
+  const rest = pathname.slice("/api/p/".length);
+  const parts = rest.split("/");
+  if (parts.length < 2) return false;
+  const scheme = parts[0];
+  const host = parts[1];
+  return Boolean(scheme && host);
+}
+
+function getTargetFromProxiedReferrer(referrer) {
+  if (!referrer) return "";
+  try {
+    const refUrl = new URL(referrer);
+    if (refUrl.pathname.startsWith("/api/p/e/")) {
+      const rest = refUrl.pathname.slice("/api/p/e/".length);
+      const parts = rest.split("/");
+      const token = parts[0];
+      const decoded = decodeUrlToken(token);
+      if (!decoded) return "";
+      if (parts.length > 1) {
+        const tail = parts.slice(1).join("/");
+        const base = decoded.endsWith("/") ? decoded.slice(0, -1) : decoded;
+        return `${base}/${tail}${refUrl.search || ""}`;
+      }
+      return decoded;
+    }
+    if (refUrl.pathname.startsWith("/api/p/")) {
+      const rest = refUrl.pathname.slice("/api/p/".length);
+      const parts = rest.split("/");
+      if (parts.length < 2) return "";
+      const scheme = parts[0];
+      const host = parts[1];
+      if (!scheme || !host) return "";
+      const tail = parts.slice(2).join("/");
+      const path = tail ? `/${tail}` : "/";
+      return `${scheme}://${host}${path}${refUrl.search || ""}`;
+    }
+  } catch {
+    return "";
+  }
+  return "";
+}
+
 function buildProxyPath(url) {
   try {
     if (isEncodeEnabled()) {
@@ -149,6 +198,38 @@ self.addEventListener("fetch", (event) => {
     });
     const isSameOrigin = reqUrl.origin === self.location.origin;
     if (isSameOrigin) {
+      if (reqUrl.pathname.startsWith("/api/p/") && !isValidProxyPath(reqUrl.pathname)) {
+        const referrerTarget = getTargetFromProxiedReferrer(
+          event.request.referrer || event.request.headers.get("referer")
+        );
+        const base = referrerTarget || targetBase;
+        if (base) {
+          const relPath = reqUrl.pathname.slice("/api/p/".length);
+          try {
+            const resolved = new URL(`${relPath}${reqUrl.search || ""}`, base).toString();
+            const proxied = buildProxyPath(resolved);
+            if (proxied) {
+              const init = {
+                method: event.request.method,
+                credentials: "omit",
+                redirect: "follow",
+              };
+              const headers = new Headers(event.request.headers);
+              if (event.request.method !== "GET" && event.request.method !== "HEAD") {
+                const contentType = event.request.headers.get("content-type");
+                if (contentType) {
+                  headers.set("content-type", contentType);
+                }
+                init.body = await event.request.clone().arrayBuffer();
+              }
+              init.headers = headers;
+              return fetch(proxied, init);
+            }
+          } catch {
+            // Fall through to normal handling.
+          }
+        }
+      }
       if (isBypassPath(reqUrl.pathname)) return fetch(event.request);
       if (reqUrl.pathname.startsWith("/_next/") && !targetBase) {
         return fetch(event.request);

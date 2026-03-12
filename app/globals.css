@@ -187,18 +187,9 @@ button:hover {
   display: flex;
   gap: 8px;
   align-items: center;
-  overflow-x: auto;
+  overflow: hidden;
   padding: 4px;
-  scrollbar-width: thin;
-}
-
-.tabs-scroll::-webkit-scrollbar {
-  height: 8px;
-}
-
-.tabs-scroll::-webkit-scrollbar-thumb {
-  background: rgba(231, 236, 242, 0.2);
-  border-radius: 999px;
+  min-width: 0;
 }
 
 .tab {
@@ -209,7 +200,9 @@ button:hover {
   padding: 4px;
   box-shadow: 0 2px 4px var(--shadow);
   border: 1px solid var(--stroke);
-  flex: 0 0 auto;
+  flex: 1 1 140px;
+  min-width: 110px;
+  max-width: 220px;
 }
 
 .tab-select {
@@ -218,7 +211,8 @@ button:hover {
   color: var(--ink);
   box-shadow: none;
   border-radius: 6px;
-  max-width: 200px;
+  width: 100%;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -347,6 +341,14 @@ button.reset:hover {
 .settings-grid label {
   font-weight: 600;
   letter-spacing: 0.02em;
+}
+
+.settings-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 0.95rem;
 }
 
 .history-panel {
