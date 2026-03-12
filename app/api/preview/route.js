@@ -78,6 +78,7 @@ function rewriteSrcset(srcset, baseUrl) {
 export async function GET(request) {
   try {
     const requestUrl = new URL(request.url);
+    const isTopMode = requestUrl.searchParams.get("top") === "1";
     let rawUrl = requestUrl.searchParams.get("url");
     if (!rawUrl) {
       const encoded = requestUrl.searchParams.get("e");
@@ -226,6 +227,116 @@ export async function GET(request) {
     const safeMetaBase = encodedBase.replace(/"/g, "&quot;");
     $("head").prepend(`<meta name="proxy-base" content="${safeMetaBase}">`);
     $("head").prepend('<meta name="referrer" content="same-origin">');
+
+    if (isTopMode) {
+      const topStyles = `
+        .proxy-topbar {
+          position: fixed;
+          top: 12px;
+          left: 12px;
+          right: 12px;
+          z-index: 2147483647;
+          display: grid;
+          grid-template-columns: auto auto auto 1fr auto;
+          gap: 10px;
+          align-items: center;
+          padding: 10px 12px;
+          border-radius: 14px;
+          background: rgba(8, 10, 14, 0.82);
+          color: #f5f7fb;
+          font-family: "Segoe UI", Tahoma, sans-serif;
+          box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+          backdrop-filter: blur(8px);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+        .proxy-topbar button {
+          appearance: none;
+          border: none;
+          padding: 8px 12px;
+          border-radius: 10px;
+          background: linear-gradient(135deg, #4ea8ff, #7b5bff);
+          color: #fff;
+          font-weight: 600;
+          cursor: pointer;
+        }
+        .proxy-topbar button.secondary {
+          background: rgba(255, 255, 255, 0.12);
+          color: #f5f7fb;
+        }
+        .proxy-topbar input {
+          width: 100%;
+          border-radius: 10px;
+          border: 1px solid rgba(255, 255, 255, 0.18);
+          padding: 8px 10px;
+          background: rgba(10, 14, 20, 0.9);
+          color: #f5f7fb;
+          font-size: 0.95rem;
+        }
+        .proxy-topbar .label {
+          font-size: 0.85rem;
+          color: rgba(245, 247, 251, 0.75);
+          font-weight: 600;
+          letter-spacing: 0.02em;
+          text-transform: uppercase;
+        }
+      `;
+      $("head").prepend(
+        `<style data-proxy-static="1">${topStyles}</style>`
+      );
+      $("body").prepend(
+        `<div class="proxy-topbar" data-proxy-static="1">
+          <span class="label">Proxy</span>
+          <button type="button" class="secondary" data-action="back">Back</button>
+          <button type="button" class="secondary" data-action="forward">Forward</button>
+          <input type="text" data-proxy-url readonly />
+          <button type="button" data-action="exit">Exit</button>
+        </div>`
+      );
+      const topScript = `
+        (() => {
+          const bar = document.querySelector(".proxy-topbar");
+          if (!bar) return;
+          const input = bar.querySelector("[data-proxy-url]");
+          const decode = (token) => {
+            try {
+              const padded = token.replace(/-/g, "+").replace(/_/g, "/");
+              const pad = padded.padEnd(Math.ceil(padded.length / 4) * 4, "=");
+              return decodeURIComponent(escape(atob(pad)));
+            } catch {
+              return "";
+            }
+          };
+          const getBase = () => {
+            const base = window.__proxyBase;
+            if (!base) return "";
+            if (typeof base === "string" && base.startsWith("e:")) {
+              return decode(base.slice(2)) || base;
+            }
+            return base;
+          };
+          const update = () => {
+            const next = window.__proxyVirtualUrl || getBase();
+            if (next && input && input.value !== next) {
+              input.value = next;
+            }
+          };
+          update();
+          setInterval(update, 500);
+          bar.querySelector("[data-action='back']")?.addEventListener("click", () => history.back());
+          bar.querySelector("[data-action='forward']")?.addEventListener("click", () => history.forward());
+          bar.querySelector("[data-action='exit']")?.addEventListener("click", () => {
+            if (history.length > 1) {
+              history.back();
+              return;
+            }
+            window.location.href = "/";
+          });
+        })();
+      `;
+      $("head").append(
+        `<script data-proxy-static="1">${topScript}</script>`
+      );
+    }
 
     const rewriteTargets = [
       { selector: "link[href]", attr: "href" },
