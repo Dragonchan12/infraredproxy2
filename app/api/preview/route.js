@@ -227,8 +227,8 @@ export async function GET(request) {
     $("form[action]").each((_, element) => {
       const method = ($(element).attr("method") || "get").toLowerCase();
       const value = $(element).attr("action");
-      const rewritten =
-        method === "get" ? proxifyDocument(value, baseUrl) : proxify(value, baseUrl);
+      if (method === "get") return;
+      const rewritten = proxify(value, baseUrl);
       if (rewritten) $(element).attr("action", rewritten);
     });
 

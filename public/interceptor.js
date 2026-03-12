@@ -3,6 +3,7 @@
   const originalXhrOpen = window.XMLHttpRequest.prototype.open;
   const PROXY_URL = '/api/p/';
   const PREVIEW_URL = '/api/preview?url=';
+  const PREVIEW_PARAM = 'url';
   const META_BASE_SELECTOR = 'meta[name="proxy-base"]';
 
   function shouldRewrite(value) {
@@ -127,6 +128,18 @@
     }
   }
 
+  function unwrapPreviewValue(raw) {
+    if (!raw || typeof raw !== "string") return "";
+    try {
+      const parsed = new URL(raw, window.location.origin);
+      if (!parsed.pathname.startsWith("/api/preview")) return "";
+      const inner = parsed.searchParams.get(PREVIEW_PARAM);
+      return inner ? decodeURIComponent(inner) : "";
+    } catch {
+      return "";
+    }
+  }
+
   function getBaseUrl() {
     if (window.__proxyBase) return window.__proxyBase;
     const meta = document.querySelector(META_BASE_SELECTOR);
@@ -143,6 +156,45 @@
     return document.baseURI;
   }
 
+  function getVirtualUrl() {
+    if (window.__proxyVirtualUrl) return window.__proxyVirtualUrl;
+    try {
+      const current = new URL(window.location.href);
+      const inner = current.searchParams.get(PREVIEW_PARAM);
+      if (inner) {
+        window.__proxyVirtualUrl = decodeURIComponent(inner);
+        return window.__proxyVirtualUrl;
+      }
+    } catch {
+      // Ignore URL parsing errors.
+    }
+    const base = getBaseUrl();
+    if (base) {
+      window.__proxyVirtualUrl = base;
+      return base;
+    }
+    return "";
+  }
+
+  function setVirtualUrl(nextUrl) {
+    if (typeof nextUrl === "string" && nextUrl) {
+      window.__proxyVirtualUrl = nextUrl;
+    }
+  }
+
+  function resolveVirtualUrl(value) {
+    if (!value) return "";
+    const raw = value instanceof URL ? value.toString() : String(value);
+    if (/^(data:|javascript:|mailto:|tel:)/i.test(raw)) return "";
+    const unwrapped = unwrapPreviewValue(raw);
+    const base = getVirtualUrl() || getBaseUrl();
+    try {
+      return new URL(unwrapped || raw, base).toString();
+    } catch {
+      return "";
+    }
+  }
+
   function rewriteElement(el) {
     if (!el || !el.getAttribute) return;
     const baseUrl = getBaseUrl();
@@ -156,6 +208,7 @@
       const value = el.getAttribute(attr);
       if (value) {
         const method = isForm ? (el.getAttribute("method") || "get").toLowerCase() : "get";
+        if (isForm && attr === "action" && method === "get") return;
         const usePreview =
           (isAnchor && attr === "href") ||
           (isFrame && attr === "src") ||
@@ -218,6 +271,34 @@
     navigator.serviceWorker.register("/proxy-sw.js", { scope: "/" }).catch(() => {});
   }
 
+  try {
+    const historyProto = window.history;
+    if (historyProto && historyProto.pushState) {
+      const originalPushState = historyProto.pushState.bind(historyProto);
+      historyProto.pushState = function(state, title, url) {
+        if (typeof url !== "undefined" && url !== null) {
+          const nextVirtual = resolveVirtualUrl(url);
+          if (nextVirtual) setVirtualUrl(nextVirtual);
+          return originalPushState(state, title, window.location.href);
+        }
+        return originalPushState(state, title, url);
+      };
+    }
+    if (historyProto && historyProto.replaceState) {
+      const originalReplaceState = historyProto.replaceState.bind(historyProto);
+      historyProto.replaceState = function(state, title, url) {
+        if (typeof url !== "undefined" && url !== null) {
+          const nextVirtual = resolveVirtualUrl(url);
+          if (nextVirtual) setVirtualUrl(nextVirtual);
+          return originalReplaceState(state, title, window.location.href);
+        }
+        return originalReplaceState(state, title, url);
+      };
+    }
+  } catch {
+    // Ignore history overrides.
+  }
+
   if (window.open) {
     const originalOpen = window.open;
     window.open = function(url, target, features) {
@@ -242,25 +323,59 @@
     if (locationProto && locationProto.assign) {
       const originalAssign = locationProto.assign;
       locationProto.assign = function(url) {
+        const nextVirtual = resolveVirtualUrl(url);
+        if (nextVirtual) setVirtualUrl(nextVirtual);
         return originalAssign.call(this, proxifyDocument(url, getBaseUrl()));
       };
     }
     if (locationProto) {
       const hrefDescriptor = Object.getOwnPropertyDescriptor(locationProto, "href");
-      if (hrefDescriptor && hrefDescriptor.set) {
+      if (hrefDescriptor && hrefDescriptor.get && hrefDescriptor.set) {
         Object.defineProperty(locationProto, "href", {
           configurable: true,
           enumerable: true,
-          get: hrefDescriptor.get,
+          get: function() {
+            return getVirtualUrl() || hrefDescriptor.get.call(this);
+          },
           set: function(url) {
+            const nextVirtual = resolveVirtualUrl(url);
+            if (nextVirtual) setVirtualUrl(nextVirtual);
             return hrefDescriptor.set.call(this, proxifyDocument(url, getBaseUrl()));
           },
         });
       }
+      const virtualProps = ["origin", "protocol", "host", "hostname", "port", "pathname", "search", "hash"];
+      virtualProps.forEach((prop) => {
+        const descriptor = Object.getOwnPropertyDescriptor(locationProto, prop);
+        if (!descriptor || !descriptor.get) return;
+        Object.defineProperty(locationProto, prop, {
+          configurable: true,
+          enumerable: true,
+          get: function() {
+            const virtual = getVirtualUrl();
+            if (!virtual) return descriptor.get.call(this);
+            try {
+              const parsed = new URL(virtual);
+              return parsed[prop];
+            } catch {
+              return descriptor.get.call(this);
+            }
+          },
+          set: descriptor.set
+            ? function(url) {
+                const nextVirtual = resolveVirtualUrl(url);
+                if (nextVirtual) setVirtualUrl(nextVirtual);
+                return descriptor.set.call(this, proxifyDocument(url, getBaseUrl()));
+              }
+            : undefined,
+        });
+      });
     }
     if (locationProto && locationProto.replace) {
       const originalReplace = locationProto.replace;
       locationProto.replace = function(url) {
+        const nextVirtual = resolveVirtualUrl(url);
+        if (nextVirtual) setVirtualUrl(nextVirtual);
         return originalReplace.call(this, proxifyDocument(url, getBaseUrl()));
       };
     }
@@ -308,7 +423,9 @@
       if (!form || form.tagName !== "FORM") return;
       const method = (form.getAttribute("method") || "get").toLowerCase();
       if (method !== "get") return;
-      const action = form.getAttribute("action") || "";
+      let action = form.getAttribute("action") || "";
+      const unwrapped = unwrapPreviewValue(action);
+      if (unwrapped) action = unwrapped;
       const targetUrl = new URL(action || getBaseUrl(), getBaseUrl());
       const data = new FormData(form);
       for (const [key, value] of data.entries()) {
@@ -316,12 +433,46 @@
       }
       const rewritten = proxifyDocument(targetUrl.toString(), getBaseUrl());
       if (rewritten) {
+        setVirtualUrl(targetUrl.toString());
         event.preventDefault();
         window.location.href = rewritten;
       }
     },
     true
   );
+
+  try {
+    const formProto = window.HTMLFormElement && window.HTMLFormElement.prototype;
+    if (formProto && formProto.submit) {
+      const originalSubmit = formProto.submit;
+      formProto.submit = function() {
+        try {
+          const method = (this.getAttribute("method") || "get").toLowerCase();
+          if (method === "get") {
+            let action = this.getAttribute("action") || "";
+            const unwrapped = unwrapPreviewValue(action);
+            if (unwrapped) action = unwrapped;
+            const targetUrl = new URL(action || getBaseUrl(), getBaseUrl());
+            const data = new FormData(this);
+            for (const [key, value] of data.entries()) {
+              targetUrl.searchParams.set(key, String(value));
+            }
+            const rewritten = proxifyDocument(targetUrl.toString(), getBaseUrl());
+            if (rewritten) {
+              setVirtualUrl(targetUrl.toString());
+              window.location.href = rewritten;
+              return;
+            }
+          }
+        } catch {
+          // Fall through to native submit.
+        }
+        return originalSubmit.call(this);
+      };
+    }
+  } catch {
+    // Ignore form submit overrides.
+  }
 
   let isRewriting = false;
   const observer = new MutationObserver((mutations) => {
