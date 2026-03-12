@@ -73,11 +73,21 @@ export default function Browser({ whitelistEnabled }) {
 
   const openTabWithUrl = useCallback((url) => {
     const nextId = nextIdRef.current++;
-    const title = getTabTitle(url);
-    const newTab = { id: nextId, title, url };
+    let finalUrl = url;
+    try {
+      const parsed = new URL(url, window.location.origin);
+      if (parsed.pathname.startsWith("/api/preview")) {
+        const inner = parsed.searchParams.get("url");
+        if (inner) finalUrl = decodeURIComponent(inner);
+      }
+    } catch {
+      // Ignore invalid URLs.
+    }
+    const title = getTabTitle(finalUrl);
+    const newTab = { id: nextId, title, url: finalUrl };
     setTabs((prev) => [...prev, newTab]);
     setActiveTabId(nextId);
-    setInput(url);
+    setInput(finalUrl);
   }, [getTabTitle]);
 
   const handleNewTab = () => {

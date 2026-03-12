@@ -302,11 +302,12 @@
   if (window.open) {
     const originalOpen = window.open;
     window.open = function(url, target, features) {
+      const resolved = url ? resolveVirtualUrl(url) : "";
       const rewrittenUrl = url ? proxifyDocument(url, getBaseUrl()) : url;
       if (window.parent && window.parent !== window) {
         try {
           window.parent.postMessage(
-            { type: "proxy:new-tab", url: rewrittenUrl },
+            { type: "proxy:new-tab", url: resolved || url },
             window.location.origin
           );
           return null;
@@ -398,11 +399,12 @@
         event.altKey;
       const href = target.getAttribute("href");
       const rewritten = proxifyDocument(href, getBaseUrl());
+      const resolved = resolveVirtualUrl(href);
       if (isNewTabRequest && rewritten) {
         event.preventDefault();
         if (window.parent && window.parent !== window) {
           window.parent.postMessage(
-            { type: "proxy:new-tab", url: rewritten },
+            { type: "proxy:new-tab", url: resolved || href },
             window.location.origin
           );
         }
