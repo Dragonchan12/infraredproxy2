@@ -27,6 +27,7 @@ function getProxyBaseFromCookies(cookieHeader) {
 
 function rewriteSrcset(srcset, baseUrl) {
   if (!srcset) return srcset;
+  if (/(data:|blob:)/i.test(srcset)) return srcset;
   const entries = srcset
     .split(",")
     .map((entry) => entry.trim())

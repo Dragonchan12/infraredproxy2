@@ -18,6 +18,15 @@
     }
     const trimmed = value.trim();
     if (!trimmed) return false;
+    const origin = window.location.origin;
+    if (
+      trimmed.startsWith(origin + PROXY_URL) ||
+      trimmed.startsWith(origin + "/api/p/") ||
+      trimmed.startsWith(origin + PREVIEW_URL) ||
+      trimmed.startsWith(origin + "/api/preview")
+    ) {
+      return false;
+    }
     if (trimmed.startsWith("/interceptor.js")) return false;
     if (trimmed.startsWith(PROXY_URL) || trimmed.startsWith(PREVIEW_URL)) return false;
     if (trimmed.startsWith("#")) return false;
@@ -150,6 +159,7 @@
     });
     if (el.getAttribute("srcset")) {
       const srcset = el.getAttribute("srcset");
+      if (srcset && /(data:|blob:)/i.test(srcset)) return;
       const rewritten = srcset
         .split(",")
         .map((entry) => entry.trim())
