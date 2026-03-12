@@ -15,6 +15,20 @@ function Tab({ title, onSelect, onClose, isActive }) {
   );
 }
 
+const DEFAULT_HOME = "https://duckduckgo.com/";
+
+function isIpAddress(input) {
+  return /^(?:\d{1,3}\.){3}\d{1,3}$/.test(input);
+}
+
+function looksLikeHost(input) {
+  if (!input) return false;
+  if (input.includes(" ")) return false;
+  if (input === "localhost") return true;
+  if (isIpAddress(input)) return true;
+  return input.includes(".");
+}
+
 function normalizeInput(value) {
   if (!value) return "";
   const trimmed = value.trim();
@@ -22,16 +36,19 @@ function normalizeInput(value) {
   if (/^https?:\/\//i.test(trimmed)) {
     return trimmed;
   }
-  return `https://${trimmed}`;
+  if (looksLikeHost(trimmed)) {
+    return `https://${trimmed}`;
+  }
+  return `${DEFAULT_HOME}?q=${encodeURIComponent(trimmed)}`;
 }
 
 export default function Browser({ whitelistEnabled }) {
   const [tabs, setTabs] = useState([
-    { id: 1, title: "New Tab", url: "" },
+    { id: 1, title: "duckduckgo.com", url: DEFAULT_HOME },
   ]);
   const [activeTabId, setActiveTabId] = useState(1);
   const nextIdRef = useRef(2);
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState(DEFAULT_HOME);
 
   const activeTab = useMemo(() => tabs.find((tab) => tab.id === activeTabId), [tabs, activeTabId]);
 
@@ -52,18 +69,18 @@ export default function Browser({ whitelistEnabled }) {
 
   const handleNewTab = () => {
     const nextId = nextIdRef.current++;
-    const newTab = { id: nextId, title: "New Tab", url: "" };
+    const newTab = { id: nextId, title: "duckduckgo.com", url: DEFAULT_HOME };
     setTabs((prev) => [...prev, newTab]);
     setActiveTabId(nextId);
-    setInput("");
+    setInput(DEFAULT_HOME);
   };
 
   const handleCloseTab = (id) => {
     if (tabs.length === 1) {
-      setTabs([{ id: 1, title: "New Tab", url: "" }]);
+      setTabs([{ id: 1, title: "duckduckgo.com", url: DEFAULT_HOME }]);
       setActiveTabId(1);
       nextIdRef.current = 2;
-      setInput("");
+      setInput(DEFAULT_HOME);
       return;
     }
 
@@ -83,7 +100,7 @@ export default function Browser({ whitelistEnabled }) {
     setInput(selectedTab?.url || "");
   };
 
-  const handleOpen = () => {
+    const handleOpen = () => {
     const normalized = normalizeInput(input);
     if (!normalized) return;
     const newTabs = tabs.map((tab) => {
@@ -117,7 +134,7 @@ export default function Browser({ whitelistEnabled }) {
             <input
               id="target"
               type="text"
-              placeholder="Enter an allowlisted URL (ex: https://www.youtube.com)"
+              placeholder="Enter a URL or search with DuckDuckGo"
               value={input}
               onChange={(event) => setInput(event.target.value)}
               onKeyDown={(event) => {
