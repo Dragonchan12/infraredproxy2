@@ -172,16 +172,31 @@
   }
 
   function getBaseUrl() {
-    if (window.__proxyBase) return window.__proxyBase;
+    if (window.__proxyBase) {
+      const base = window.__proxyBase;
+      if (typeof base === "string" && base.startsWith("e:")) {
+        const decoded = decodeUrlToken(base.slice(2));
+        return decoded || base;
+      }
+      return base;
+    }
     const meta = document.querySelector(META_BASE_SELECTOR);
     if (meta && meta.content) {
       window.__proxyBase = meta.content;
+      if (meta.content.startsWith("e:")) {
+        const decoded = decodeUrlToken(meta.content.slice(2));
+        return decoded || meta.content;
+      }
       return meta.content;
     }
     const htmlBase =
       document.documentElement && document.documentElement.getAttribute("data-proxy-base");
     if (htmlBase) {
       window.__proxyBase = htmlBase;
+      if (htmlBase.startsWith("e:")) {
+        const decoded = decodeUrlToken(htmlBase.slice(2));
+        return decoded || htmlBase;
+      }
       return htmlBase;
     }
     return document.baseURI;
@@ -196,7 +211,7 @@
         return true;
       }
     }
-    return false;
+    return true;
   }
 
   function getVirtualUrl() {
@@ -453,6 +468,39 @@
     }
   } catch {
     // Some browsers lock down Location; ignore.
+  }
+
+  function patchUrlProperty(proto, prop, mode) {
+    if (!proto) return;
+    const descriptor = Object.getOwnPropertyDescriptor(proto, prop);
+    if (!descriptor || !descriptor.set) return;
+    Object.defineProperty(proto, prop, {
+      configurable: true,
+      enumerable: descriptor.enumerable,
+      get: descriptor.get,
+      set: function(value) {
+        const baseUrl = getBaseUrl();
+        const next =
+          mode === "document"
+            ? proxifyDocument(value, baseUrl)
+            : proxify(value, baseUrl);
+        return descriptor.set.call(this, next);
+      }
+    });
+  }
+
+  try {
+    patchUrlProperty(window.HTMLScriptElement && window.HTMLScriptElement.prototype, "src", "asset");
+    patchUrlProperty(window.HTMLLinkElement && window.HTMLLinkElement.prototype, "href", "asset");
+    patchUrlProperty(window.HTMLImageElement && window.HTMLImageElement.prototype, "src", "asset");
+    patchUrlProperty(window.HTMLIFrameElement && window.HTMLIFrameElement.prototype, "src", "document");
+    patchUrlProperty(window.HTMLSourceElement && window.HTMLSourceElement.prototype, "src", "asset");
+    patchUrlProperty(window.HTMLVideoElement && window.HTMLVideoElement.prototype, "src", "asset");
+    patchUrlProperty(window.HTMLAudioElement && window.HTMLAudioElement.prototype, "src", "asset");
+    patchUrlProperty(window.HTMLTrackElement && window.HTMLTrackElement.prototype, "src", "asset");
+    patchUrlProperty(window.HTMLAnchorElement && window.HTMLAnchorElement.prototype, "href", "document");
+  } catch {
+    // Ignore URL property patches.
   }
 
   document.addEventListener(

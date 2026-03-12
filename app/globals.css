@@ -66,7 +66,8 @@ a {
 .controls-row {
   display: grid;
   gap: 12px;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
 }
 
 input[type="text"] {
@@ -136,14 +137,68 @@ button:hover {
   gap: 12px;
 }
 
-.tabs {
-  display: flex;
-  gap: 8px;
+.tabs-bar {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
   align-items: center;
-  padding: 6px;
+  padding: 8px 10px;
   border-radius: 14px;
   background: var(--panel);
   border: 1px solid var(--stroke);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 6px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.brand-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--stroke);
+  display: grid;
+  place-items: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.brand-icon.placeholder {
+  display: grid;
+  place-items: center;
+}
+
+.brand-title {
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  font-size: 0.95rem;
+  white-space: nowrap;
+}
+
+.tabs-scroll {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  overflow-x: auto;
+  padding: 4px;
+  scrollbar-width: thin;
+}
+
+.tabs-scroll::-webkit-scrollbar {
+  height: 8px;
+}
+
+.tabs-scroll::-webkit-scrollbar-thumb {
+  background: rgba(231, 236, 242, 0.2);
+  border-radius: 999px;
 }
 
 .tab {
@@ -154,6 +209,7 @@ button:hover {
   padding: 4px;
   box-shadow: 0 2px 4px var(--shadow);
   border: 1px solid var(--stroke);
+  flex: 0 0 auto;
 }
 
 .tab-select {
@@ -162,7 +218,7 @@ button:hover {
   color: var(--ink);
   box-shadow: none;
   border-radius: 6px;
-  max-width: 180px;
+  max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -213,6 +269,34 @@ button:hover {
   background: var(--panel);
 }
 
+.nav-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tool-button {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(231, 236, 242, 0.08);
+  color: var(--ink);
+  border: 1px solid var(--stroke);
+  box-shadow: none;
+}
+
+.tool-button:hover {
+  background: rgba(231, 236, 242, 0.14);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+}
+
+.tool-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
 .controls-row button {
   min-width: 92px;
 }
@@ -220,6 +304,19 @@ button:hover {
 .controls-actions {
   display: flex;
   gap: 10px;
+}
+
+button.ghost {
+  background: rgba(231, 236, 242, 0.08);
+  color: var(--ink);
+  border: 1px solid var(--stroke);
+  box-shadow: none;
+}
+
+button.ghost:hover {
+  background: rgba(231, 236, 242, 0.14);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.25);
 }
 
 button.reset {
@@ -233,6 +330,77 @@ button.reset:hover {
   background: rgba(231, 236, 242, 0.14);
   transform: translateY(-1px);
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.25);
+}
+
+.settings-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 12px;
+  align-items: center;
+}
+
+.settings-grid label {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.history-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.history-list {
+  display: grid;
+  gap: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.history-item {
+  text-align: left;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--stroke);
+  color: var(--ink);
+  padding: 10px 12px;
+  border-radius: 12px;
+  display: grid;
+  gap: 4px;
+  box-shadow: none;
+}
+
+.history-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+}
+
+.history-title {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.history-url {
+  font-size: 0.85rem;
+  color: var(--muted);
+  word-break: break-all;
+}
+
+.history-empty {
+  color: var(--muted);
+  text-align: center;
+  padding: 16px 0;
 }
 
 .empty-state {
@@ -261,8 +429,17 @@ button.reset:hover {
     width: 100%;
   }
 
-  .tabs {
+  .tabs-bar {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .tabs-scroll {
     flex-wrap: wrap;
+  }
+
+  .settings-grid {
+    grid-template-columns: 1fr;
   }
 }
 

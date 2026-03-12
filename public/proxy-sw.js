@@ -2,6 +2,7 @@
 const PROXY_PREFIX = "/api/p/";
 const PREVIEW_PARAM = "url";
 const ENCODE_PARAM = "e";
+const FORCE_ENCODE = true;
 
 self.addEventListener("install", (event) => {
   event.waitUntil(self.skipWaiting());
@@ -74,10 +75,14 @@ async function getClientTargetBase(clientId) {
 }
 
 function isEncodeEnabled() {
-  return self.__proxyEncode === true;
+  return FORCE_ENCODE || self.__proxyEncode === true;
 }
 
 function updateEncodeFlag({ clientUrl, referrer, cookieHeader }) {
+  if (FORCE_ENCODE) {
+    self.__proxyEncode = true;
+    return;
+  }
   if (self.__proxyEncode === true) return;
   if (cookieHeader && cookieHeader.toLowerCase().includes("proxy-encode=1")) {
     self.__proxyEncode = true;

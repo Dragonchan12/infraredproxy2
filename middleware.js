@@ -13,7 +13,7 @@ function isInternalPath(pathname) {
 }
 
 function shouldEncodeUrls() {
-  return (process.env.PROXY_ENCODE_URLS || "").trim().toLowerCase() === "true";
+  return (process.env.PROXY_ENCODE_URLS || "true").trim().toLowerCase() !== "false";
 }
 
 function encodeUrlToken(url) {
@@ -116,7 +116,14 @@ export function middleware(request) {
     const cookieBase = request.cookies.get("proxy-base")?.value;
     if (cookieBase) {
       try {
-        targetBase = new URL(decodeURIComponent(cookieBase));
+        if (cookieBase.startsWith("e:")) {
+          const decoded = decodeUrlToken(cookieBase.slice(2));
+          if (decoded) {
+            targetBase = new URL(decoded);
+          }
+        } else {
+          targetBase = new URL(decodeURIComponent(cookieBase));
+        }
       } catch {
         targetBase = null;
       }

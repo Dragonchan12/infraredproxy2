@@ -10,6 +10,7 @@ import {
   parseAndValidateTarget,
   proxify,
   proxifyDocument,
+  shouldEncodeUrls,
 } from "@/lib/proxy";
 
 export const runtime = "nodejs";
@@ -21,7 +22,11 @@ function getProxyBaseFromCookies(cookieHeader) {
   for (const part of parts) {
     if (part.toLowerCase().startsWith("proxy-base=")) {
       const raw = part.slice("proxy-base=".length);
-      return raw ? decodeURIComponent(raw) : "";
+      if (!raw) return "";
+      if (raw.startsWith("e:")) {
+        return decodeUrlToken(raw.slice(2)) || "";
+      }
+      return decodeURIComponent(raw);
     }
   }
   return "";
@@ -184,8 +189,7 @@ export async function GET(request) {
 
     $("base").remove();
     const baseUrl = validation.url.toString();
-    const safeBaseUrl = baseUrl.replace(/"/g, "&quot;");
-    const encodeEnabled = (process.env.PROXY_ENCODE_URLS || "").trim().toLowerCase() === "true";
+    const encodeEnabled = shouldEncodeUrls();
     const proxyOriginPrefix = encodeEnabled
       ? `/api/p/e/${encodeUrlToken(validation.url.origin)}`
       : `/api/p/${validation.url.protocol.replace(":", "")}/${validation.url.host}`;
@@ -194,9 +198,10 @@ export async function GET(request) {
       const safeProxyBase = proxyBase.replace(/"/g, "&quot;");
       $("head").prepend(`<base href="${safeProxyBase}">`);
     }
-    $("html").attr("data-proxy-base", safeBaseUrl);
+    const encodedBase = encodeEnabled ? `e:${encodeUrlToken(baseUrl)}` : baseUrl;
+    $("html").attr("data-proxy-base", encodedBase.replace(/"/g, "&quot;"));
     $("head").prepend(
-      `<script data-proxy-static="1">window.__proxyBase=${JSON.stringify(baseUrl)};</script>`
+      `<script data-proxy-static="1">window.__proxyBase=${JSON.stringify(encodedBase)};</script>`
     );
     if (encodeEnabled) {
       $("head").prepend('<meta name="proxy-encode" content="1">');
@@ -215,7 +220,8 @@ export async function GET(request) {
       }
     }
     $("head").prepend('<script src="/interceptor.js" data-proxy-static="1"></script>');
-    $("head").prepend(`<meta name="proxy-base" content="${safeBaseUrl}">`);
+    const safeMetaBase = encodedBase.replace(/"/g, "&quot;");
+    $("head").prepend(`<meta name="proxy-base" content="${safeMetaBase}">`);
     $("head").prepend('<meta name="referrer" content="same-origin">');
 
     const rewriteTargets = [
@@ -291,12 +297,13 @@ export async function GET(request) {
     const responseHeaders = new Headers();
     responseHeaders.set("content-type", "text/html; charset=utf-8");
     responseHeaders.set("cache-control", "no-store");
-    responseHeaders.set("x-proxy-target", validation.url.origin);
     responseHeaders.set("x-content-type-options", "nosniff");
     appendSetCookies(upstream.headers, responseHeaders);
     responseHeaders.append(
       "set-cookie",
-      `proxy-base=${encodeURIComponent(validation.url.toString())}; Path=/; SameSite=Lax`
+      encodeEnabled
+        ? `proxy-base=e:${encodeUrlToken(validation.url.toString())}; Path=/; SameSite=Lax`
+        : `proxy-base=${encodeURIComponent(validation.url.toString())}; Path=/; SameSite=Lax`
     );
     if (encodeEnabled) {
       responseHeaders.append("set-cookie", "proxy-encode=1; Path=/; SameSite=Lax");
