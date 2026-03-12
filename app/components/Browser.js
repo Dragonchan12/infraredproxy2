@@ -48,11 +48,12 @@ function normalizeInput(value) {
 
 export default function Browser({ whitelistEnabled }) {
   const [tabs, setTabs] = useState([
-    { id: 1, title: "search.brave.com", url: DEFAULT_HOME },
+    { id: 1, title: "search.brave.com", url: DEFAULT_HOME, iframeUrl: DEFAULT_HOME },
   ]);
   const [activeTabId, setActiveTabId] = useState(1);
   const nextIdRef = useRef(2);
   const [input, setInput] = useState(DEFAULT_HOME);
+  const iframeRefs = useRef(new Map());
 
   const activeTab = useMemo(() => tabs.find((tab) => tab.id === activeTabId), [tabs, activeTabId]);
   const getIframeSrc = useCallback((url) => {
@@ -83,7 +84,7 @@ export default function Browser({ whitelistEnabled }) {
       // Ignore invalid URLs.
     }
     const title = getTabTitle(finalUrl);
-    const newTab = { id: nextId, title, url: finalUrl };
+    const newTab = { id: nextId, title, url: finalUrl, iframeUrl: finalUrl };
     setTabs((prev) => [...prev, newTab]);
     setActiveTabId(nextId);
     setInput(finalUrl);
@@ -95,7 +96,7 @@ export default function Browser({ whitelistEnabled }) {
 
   const handleCloseTab = (id) => {
     if (tabs.length === 1) {
-      setTabs([{ id: 1, title: "search.brave.com", url: DEFAULT_HOME }]);
+      setTabs([{ id: 1, title: "search.brave.com", url: DEFAULT_HOME, iframeUrl: DEFAULT_HOME }]);
       setActiveTabId(1);
       nextIdRef.current = 2;
       setInput(DEFAULT_HOME);
@@ -123,7 +124,7 @@ export default function Browser({ whitelistEnabled }) {
     if (!normalized) return;
     const newTabs = tabs.map((tab) => {
       if (tab.id === activeTabId) {
-        return { ...tab, url: normalized, title: getTabTitle(normalized) };
+        return { ...tab, url: normalized, iframeUrl: normalized, title: getTabTitle(normalized) };
       }
       return tab;
     });
@@ -134,13 +135,38 @@ export default function Browser({ whitelistEnabled }) {
     const onMessage = (event) => {
       if (event.origin !== window.location.origin) return;
       const data = event.data;
-      if (!data || data.type !== "proxy:new-tab") return;
-      const url = typeof data.url === "string" && data.url ? data.url : DEFAULT_HOME;
-      openTabWithUrl(url);
+      if (!data || typeof data.type !== "string") return;
+      if (data.type === "proxy:new-tab") {
+        const url = typeof data.url === "string" && data.url ? data.url : DEFAULT_HOME;
+        openTabWithUrl(url);
+        return;
+      }
+      if (data.type === "proxy:url-change") {
+        const url = typeof data.url === "string" && data.url ? data.url : "";
+        if (!url) return;
+        let targetId = null;
+        for (const [id, frame] of iframeRefs.current.entries()) {
+          if (frame && frame.contentWindow === event.source) {
+            targetId = id;
+            break;
+          }
+        }
+        if (!targetId) return;
+        setTabs((prev) =>
+          prev.map((tab) =>
+            tab.id === targetId
+              ? { ...tab, url, title: getTabTitle(url) }
+              : tab
+          )
+        );
+        if (targetId === activeTabId) {
+          setInput(url);
+        }
+      }
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [openTabWithUrl]);
+  }, [openTabWithUrl, getTabTitle, activeTabId]);
 
   return (
     <div className="browser-shell">
@@ -179,7 +205,7 @@ export default function Browser({ whitelistEnabled }) {
       </header>
       <section className="viewer">
         {tabs.map((tab) => {
-          const src = getIframeSrc(tab.url);
+          const src = getIframeSrc(tab.iframeUrl);
           if (!src) return null;
           return (
             <iframe
@@ -188,6 +214,13 @@ export default function Browser({ whitelistEnabled }) {
               src={src}
               className={tab.id === activeTabId ? "" : "hidden"}
               allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+              ref={(node) => {
+                if (node) {
+                  iframeRefs.current.set(tab.id, node);
+                } else {
+                  iframeRefs.current.delete(tab.id);
+                }
+              }}
             />
           );
         })}

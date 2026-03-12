@@ -5,6 +5,8 @@
   const PREVIEW_URL = '/api/preview?url=';
   const PREVIEW_PARAM = 'url';
   const META_BASE_SELECTOR = 'meta[name="proxy-base"]';
+  let lastReportedUrl = "";
+  let reportTimer = null;
 
   function shouldRewrite(value) {
     if (!value) return false;
@@ -179,7 +181,27 @@
   function setVirtualUrl(nextUrl) {
     if (typeof nextUrl === "string" && nextUrl) {
       window.__proxyVirtualUrl = nextUrl;
+      reportUrlChange(nextUrl);
     }
+  }
+
+  function reportUrlChange(nextUrl) {
+    if (!nextUrl || nextUrl === lastReportedUrl) return;
+    lastReportedUrl = nextUrl;
+    if (!window.parent || window.parent === window) return;
+    if (reportTimer) {
+      clearTimeout(reportTimer);
+    }
+    reportTimer = setTimeout(() => {
+      try {
+        window.parent.postMessage(
+          { type: "proxy:url-change", url: nextUrl },
+          window.location.origin
+        );
+      } catch {
+        // Ignore postMessage errors.
+      }
+    }, 50);
   }
 
   function resolveVirtualUrl(value) {
@@ -499,4 +521,6 @@
     attributes: true,
     attributeFilter: ["src", "href", "action", "poster", "srcset"],
   });
+
+  reportUrlChange(getVirtualUrl());
 })();
