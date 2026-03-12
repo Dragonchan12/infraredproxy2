@@ -113,6 +113,10 @@ button:hover {
   background: #000;
 }
 
+.viewer iframe.hidden {
+  display: none;
+}
+
 /* Browser UI */
 .browser-shell {
   display: grid;

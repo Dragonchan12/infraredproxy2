@@ -55,11 +55,10 @@ export default function Browser({ whitelistEnabled }) {
   const [input, setInput] = useState(DEFAULT_HOME);
 
   const activeTab = useMemo(() => tabs.find((tab) => tab.id === activeTabId), [tabs, activeTabId]);
-
-  const iframeSrc = useMemo(() => {
-    if (!activeTab || !activeTab.url) return "";
-    return `/api/preview?url=${encodeURIComponent(activeTab.url)}`;
-  }, [activeTab]);
+  const getIframeSrc = useCallback((url) => {
+    if (!url) return "";
+    return `/api/preview?url=${encodeURIComponent(url)}`;
+  }, []);
 
   const getTabTitle = useCallback((url) => {
     if (!url) return "New Tab";
@@ -179,16 +178,20 @@ export default function Browser({ whitelistEnabled }) {
         </div>
       </header>
       <section className="viewer">
-        {iframeSrc ? (
-          <iframe
-            key={activeTabId}
-            title="Proxy preview"
-            src={iframeSrc}
-            allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
-          />
-        ) : (
-          <div className="panel empty-state">Enter an allowlisted URL to begin.</div>
-        )}
+        {tabs.map((tab) => {
+          const src = getIframeSrc(tab.url);
+          if (!src) return null;
+          return (
+            <iframe
+              key={tab.id}
+              title={`Proxy preview ${tab.title}`}
+              src={src}
+              className={tab.id === activeTabId ? "" : "hidden"}
+              allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+            />
+          );
+        })}
+        {!tabs.length && <div className="panel empty-state">Enter an allowlisted URL to begin.</div>}
       </section>
     </div>
   );
