@@ -312,9 +312,285 @@
     return false;
   }
 
+  function wireTopBar(bar) {
+    if (!bar || bar.dataset.proxyWired === "1") return;
+    bar.dataset.proxyWired = "1";
+    bar.setAttribute("data-proxy-static", "1");
+    bar.style.setProperty("all", "initial", "important");
+    bar.style.position = "fixed";
+    bar.style.top = "12px";
+    bar.style.left = "12px";
+    bar.style.right = "12px";
+    bar.style.zIndex = "2147483647";
+    bar.style.display = "grid";
+    bar.style.gridTemplateColumns = "auto auto auto 1fr auto auto";
+    bar.style.gap = "10px";
+    bar.style.alignItems = "center";
+    bar.style.padding = "10px 12px";
+    bar.style.borderRadius = "14px";
+    bar.style.background = "rgba(8, 10, 14, 0.82)";
+    bar.style.color = "#f5f7fb";
+    bar.style.fontFamily = '"Segoe UI", Tahoma, sans-serif';
+    bar.style.boxShadow = "0 18px 40px rgba(0, 0, 0, 0.35)";
+    bar.style.backdropFilter = "blur(8px)";
+    bar.style.border = "1px solid rgba(255, 255, 255, 0.12)";
+    bar.style.pointerEvents = "auto";
+    bar.style.setProperty("position", "fixed", "important");
+    bar.style.setProperty("top", "12px", "important");
+    bar.style.setProperty("left", "12px", "important");
+    bar.style.setProperty("right", "12px", "important");
+    bar.style.setProperty("z-index", "2147483647", "important");
+    bar.style.setProperty("display", "grid", "important");
+    bar.style.setProperty("pointer-events", "auto", "important");
+    bar.style.setProperty("visibility", "visible", "important");
+    bar.style.setProperty("opacity", "1", "important");
+
+    const makeButton = (label, className) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = label;
+      btn.className = className;
+      btn.style.appearance = "none";
+      btn.style.border = "none";
+      btn.style.padding = "8px 12px";
+      btn.style.borderRadius = "10px";
+      btn.style.fontWeight = "600";
+      btn.style.cursor = "pointer";
+      btn.style.pointerEvents = "auto";
+      if (className.includes("secondary")) {
+        btn.style.background = "rgba(255, 255, 255, 0.12)";
+        btn.style.color = "#f5f7fb";
+      } else if (className.includes("toggle")) {
+        btn.style.background = "rgba(255, 255, 255, 0.16)";
+        btn.style.color = "#f5f7fb";
+        btn.style.fontWeight = "700";
+      } else {
+        btn.style.background = "linear-gradient(135deg, #4ea8ff, #7b5bff)";
+        btn.style.color = "#fff";
+      }
+      return btn;
+    };
+
+    let label = bar.querySelector("[data-proxy-label]");
+    if (!label) {
+      label = document.createElement("span");
+      label.textContent = "Proxy";
+      label.setAttribute("data-proxy-label", "1");
+      bar.prepend(label);
+    }
+    label.style.fontSize = "0.85rem";
+    label.style.color = "rgba(245, 247, 251, 0.75)";
+    label.style.fontWeight = "600";
+    label.style.letterSpacing = "0.02em";
+    label.style.textTransform = "uppercase";
+    label.style.pointerEvents = "auto";
+
+    let backBtn = bar.querySelector("[data-action='back']");
+    if (!backBtn) {
+      backBtn = makeButton("Back", "secondary");
+      backBtn.setAttribute("data-action", "back");
+      bar.appendChild(backBtn);
+    }
+    let forwardBtn = bar.querySelector("[data-action='forward']");
+    if (!forwardBtn) {
+      forwardBtn = makeButton("Forward", "secondary");
+      forwardBtn.setAttribute("data-action", "forward");
+      bar.appendChild(forwardBtn);
+    }
+    let input = bar.querySelector("[data-proxy-url]");
+    if (!input) {
+      input = document.createElement("input");
+      input.type = "text";
+      input.placeholder = "Enter a URL or search";
+      input.setAttribute("data-proxy-url", "1");
+      bar.appendChild(input);
+    }
+    input.style.width = "100%";
+    input.style.borderRadius = "10px";
+    input.style.border = "1px solid rgba(255, 255, 255, 0.18)";
+    input.style.padding = "8px 10px";
+    input.style.background = "rgba(10, 14, 20, 0.9)";
+    input.style.color = "#f5f7fb";
+    input.style.fontSize = "0.95rem";
+    input.style.pointerEvents = "auto";
+
+    let exitBtn = bar.querySelector("[data-action='exit']");
+    if (!exitBtn) {
+      exitBtn = makeButton("Exit", "");
+      exitBtn.setAttribute("data-action", "exit");
+      bar.appendChild(exitBtn);
+    }
+    let toggleBtn = bar.querySelector("[data-action='toggle']");
+    if (!toggleBtn) {
+      toggleBtn = makeButton("▴", "toggle");
+      toggleBtn.setAttribute("data-action", "toggle");
+      bar.appendChild(toggleBtn);
+    }
+
+    const items = Array.from(bar.querySelectorAll("[data-proxy-item='1'], [data-proxy-label='1'], [data-proxy-url='1']"));
+    items.forEach((el) => el.setAttribute("data-proxy-item", "1"));
+
+    const stop = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    const stopBarOnly = (event) => {
+      if (event.target !== bar) return;
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    bar.addEventListener("click", stopBarOnly, true);
+    bar.addEventListener("mousedown", stopBarOnly, true);
+
+    const setCollapsed = (next) => {
+      bar.dataset.collapsed = next ? "1" : "0";
+      if (next) {
+        bar.style.right = "auto";
+        bar.style.width = "fit-content";
+        bar.style.padding = "6px 10px";
+        bar.style.gridTemplateColumns = "auto";
+        bar.style.setProperty("right", "auto", "important");
+        bar.style.setProperty("width", "fit-content", "important");
+        bar.style.setProperty("padding", "6px 10px", "important");
+        bar.style.setProperty("grid-template-columns", "auto", "important");
+        items.forEach((el) => {
+          el.style.display = "none";
+        });
+      } else {
+        bar.style.right = "12px";
+        bar.style.width = "auto";
+        bar.style.padding = "10px 12px";
+        bar.style.gridTemplateColumns = "auto auto auto 1fr auto auto";
+        bar.style.setProperty("right", "12px", "important");
+        bar.style.setProperty("width", "auto", "important");
+        bar.style.setProperty("padding", "10px 12px", "important");
+        bar.style.setProperty("grid-template-columns", "auto auto auto 1fr auto auto", "important");
+        items.forEach((el) => {
+          el.style.display = "";
+        });
+      }
+      toggleBtn.textContent = next ? "▾" : "▴";
+      try {
+        localStorage.setItem("proxy-topbar-collapsed", next ? "1" : "0");
+      } catch {}
+    };
+
+    let initialCollapsed = false;
+    try {
+      initialCollapsed = localStorage.getItem("proxy-topbar-collapsed") === "1";
+    } catch {}
+    setCollapsed(initialCollapsed);
+
+    toggleBtn.addEventListener(
+      "click",
+      (event) => {
+        stop(event);
+        setCollapsed(bar.dataset.collapsed !== "1");
+      },
+      true
+    );
+    backBtn.addEventListener(
+      "click",
+      (event) => {
+        stop(event);
+        history.back();
+      },
+      true
+    );
+    forwardBtn.addEventListener(
+      "click",
+      (event) => {
+        stop(event);
+        history.forward();
+      },
+      true
+    );
+    exitBtn.addEventListener(
+      "click",
+      (event) => {
+        stop(event);
+        if (history.length > 1) {
+          history.back();
+          return;
+        }
+        window.location.href = "/";
+      },
+      true
+    );
+
+    const looksLikeHost = (value) => {
+      if (!value) return false;
+      if (value.includes(" ")) return false;
+      if (value === "localhost") return true;
+      if (/^(?:\\d{1,3}\\.){3}\\d{1,3}$/.test(value)) return true;
+      return value.includes(".");
+    };
+    const normalizeInput = (value) => {
+      if (!value) return "";
+      const trimmed = value.trim();
+      if (!trimmed) return "";
+      if (/^https?:\\/\\//i.test(trimmed)) return trimmed;
+      if (looksLikeHost(trimmed)) return `https://${trimmed}`;
+      return `https://search.brave.com/search?q=${encodeURIComponent(trimmed)}&source=web`;
+    };
+    const buildPreview = (url) => {
+      if (!url) return "";
+      const token = encodeUrlToken(url);
+      if (token) return `/api/preview?e=${token}&top=1`;
+      return `/api/preview?url=${encodeURIComponent(url)}&top=1`;
+    };
+
+    let isEditing = false;
+    const getVirtualFromLocation = () => {
+      try {
+        const current = new URL(window.location.href);
+        if (current.pathname.startsWith("/api/preview")) {
+          const encoded = current.searchParams.get("e");
+          if (encoded) return decodeUrlToken(encoded);
+          const inner = current.searchParams.get("url");
+          return inner ? decodeURIComponent(inner) : "";
+        }
+      } catch {}
+      return "";
+    };
+    const updateInput = () => {
+      if (isEditing) return;
+      const next = getVirtualUrl() || getVirtualFromLocation() || getBaseUrl();
+      if (next && input.value !== next) {
+        input.value = next;
+      }
+    };
+    updateInput();
+    setInterval(updateInput, 500);
+
+    input.addEventListener("focus", () => {
+      isEditing = true;
+    });
+    input.addEventListener("blur", () => {
+      isEditing = false;
+      updateInput();
+    });
+    input.addEventListener(
+      "keydown",
+      (event) => {
+        if (event.key !== "Enter") return;
+        stop(event);
+        const next = normalizeInput(input.value);
+        if (!next) return;
+        const preview = buildPreview(next);
+        if (preview) window.location.href = preview;
+      },
+      true
+    );
+  }
+
   function ensureTopBar() {
     if (!shouldShowTopBar()) return;
-    if (document.querySelector(".proxy-topbar")) return;
+    const existing = document.querySelector(".proxy-topbar");
+    if (existing) {
+      wireTopBar(existing);
+      return;
+    }
     const bar = document.createElement("div");
     bar.className = "proxy-topbar";
     bar.setAttribute("data-proxy-static", "1");

@@ -190,6 +190,10 @@ export async function GET(request) {
     const $ = load(html);
 
     $("base").remove();
+    $("meta[http-equiv='Content-Security-Policy']").remove();
+    $("meta[http-equiv='content-security-policy']").remove();
+    $("meta[http-equiv='Content-Security-Policy-Report-Only']").remove();
+    $("meta[http-equiv='content-security-policy-report-only']").remove();
     const baseUrl = validation.url.toString();
     const encodeEnabled = shouldEncodeUrls();
     const proxyOriginPrefix = encodeEnabled
