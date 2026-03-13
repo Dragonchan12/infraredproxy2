@@ -336,6 +336,15 @@
     bar.style.backdropFilter = "blur(8px)";
     bar.style.border = "1px solid rgba(255, 255, 255, 0.12)";
     bar.style.pointerEvents = "auto";
+    bar.style.setProperty("position", "fixed", "important");
+    bar.style.setProperty("top", "12px", "important");
+    bar.style.setProperty("left", "12px", "important");
+    bar.style.setProperty("right", "12px", "important");
+    bar.style.setProperty("z-index", "2147483647", "important");
+    bar.style.setProperty("display", "grid", "important");
+    bar.style.setProperty("pointer-events", "auto", "important");
+    bar.style.setProperty("visibility", "visible", "important");
+    bar.style.setProperty("opacity", "1", "important");
 
     const makeButton = (label, className) => {
       const btn = document.createElement("button");
@@ -411,6 +420,10 @@
         bar.style.width = "fit-content";
         bar.style.padding = "6px 10px";
         bar.style.gridTemplateColumns = "auto";
+        bar.style.setProperty("right", "auto", "important");
+        bar.style.setProperty("width", "fit-content", "important");
+        bar.style.setProperty("padding", "6px 10px", "important");
+        bar.style.setProperty("grid-template-columns", "auto", "important");
         items.forEach((el) => {
           el.style.display = "none";
         });
@@ -419,6 +432,10 @@
         bar.style.width = "auto";
         bar.style.padding = "10px 12px";
         bar.style.gridTemplateColumns = "auto auto auto 1fr auto auto";
+        bar.style.setProperty("right", "12px", "important");
+        bar.style.setProperty("width", "auto", "important");
+        bar.style.setProperty("padding", "10px 12px", "important");
+        bar.style.setProperty("grid-template-columns", "auto auto auto 1fr auto auto", "important");
         items.forEach((el) => {
           el.style.display = "";
         });
@@ -671,6 +688,16 @@
   }
 
   ensureTopBar();
+  if (typeof window !== "undefined") {
+    window.addEventListener("DOMContentLoaded", ensureTopBar);
+    window.addEventListener("load", ensureTopBar);
+    setInterval(() => {
+      if (!shouldShowTopBar()) return;
+      if (!document.querySelector(".proxy-topbar")) {
+        ensureTopBar();
+      }
+    }, 1000);
+  }
 
   try {
     const historyProto = window.history;
