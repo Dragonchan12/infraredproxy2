@@ -230,6 +230,19 @@ export async function GET(request) {
 
     if (isTopMode) {
       $("head").append('<meta name="proxy-top" content="1">');
+      const barHtml = `
+        <div class="proxy-topbar" data-proxy-static="1" data-proxy-topbar="1"
+          style="position:fixed;top:12px;left:12px;right:12px;z-index:2147483647;display:grid;grid-template-columns:auto auto auto 1fr auto auto;gap:10px;align-items:center;padding:10px 12px;border-radius:14px;background:rgba(8,10,14,0.82);color:#f5f7fb;font-family:Segoe UI,Tahoma,sans-serif;box-shadow:0 18px 40px rgba(0,0,0,0.35);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.12);pointer-events:auto;">
+          <span class="proxy-topbar-item" data-proxy-item="1" data-proxy-label="1" style="font-size:0.85rem;color:rgba(245,247,251,0.75);font-weight:600;letter-spacing:0.02em;text-transform:uppercase;">Proxy</span>
+          <button type="button" class="proxy-topbar-item" data-proxy-item="1" data-action="back" style="appearance:none;border:none;padding:8px 12px;border-radius:10px;background:rgba(255,255,255,0.12);color:#f5f7fb;font-weight:600;cursor:pointer;">Back</button>
+          <button type="button" class="proxy-topbar-item" data-proxy-item="1" data-action="forward" style="appearance:none;border:none;padding:8px 12px;border-radius:10px;background:rgba(255,255,255,0.12);color:#f5f7fb;font-weight:600;cursor:pointer;">Forward</button>
+          <input type="text" class="proxy-topbar-item" data-proxy-item="1" data-proxy-url placeholder="Enter a URL or search"
+            style="width:100%;border-radius:10px;border:1px solid rgba(255,255,255,0.18);padding:8px 10px;background:rgba(10,14,20,0.9);color:#f5f7fb;font-size:0.95rem;" />
+          <button type="button" class="proxy-topbar-item" data-proxy-item="1" data-action="exit" style="appearance:none;border:none;padding:8px 12px;border-radius:10px;background:linear-gradient(135deg,#4ea8ff,#7b5bff);color:#fff;font-weight:600;cursor:pointer;">Exit</button>
+          <button type="button" data-action="toggle" aria-label="Toggle bar" style="appearance:none;border:none;padding:8px 12px;border-radius:10px;background:rgba(255,255,255,0.16);color:#f5f7fb;font-weight:700;cursor:pointer;">▴</button>
+        </div>
+      `;
+      $("body").prepend(barHtml);
     }
 
     const rewriteTargets = [
