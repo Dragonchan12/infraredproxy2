@@ -349,9 +349,6 @@ export async function GET(request) {
     if (encodeEnabled) {
       responseHeaders.append("set-cookie", "proxy-encode=1; Path=/; SameSite=Lax");
     }
-    // Keep navigations on the proxy origin so raw-site redirects cannot escape fullscreen mode.
-    responseHeaders.set("content-security-policy", "navigate-to 'self'; form-action 'self'");
-
     return new Response($.html(), {
       status: upstream.status,
       headers: responseHeaders

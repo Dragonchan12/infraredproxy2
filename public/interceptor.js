@@ -1152,7 +1152,13 @@
   document.addEventListener(
     "click",
     (event) => {
-      const target = event.target && event.target.closest ? event.target.closest("a[href]") : null;
+      const path =
+        typeof event.composedPath === "function"
+          ? event.composedPath()
+          : [];
+      const target =
+        path.find((node) => node && node.tagName === "A" && node.getAttribute && node.getAttribute("href")) ||
+        (event.target && event.target.closest ? event.target.closest("a[href]") : null);
       if (!target) return;
       if (event.defaultPrevented) return;
       if (event.button !== 0) return;
