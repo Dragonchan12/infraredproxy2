@@ -63,6 +63,22 @@ function buildPreviewSearch(targetUrl) {
   return `?url=${encodeURIComponent(targetUrl)}`;
 }
 
+function shouldPreserveTopMode(request) {
+  if (request.nextUrl.searchParams.get("top") === "1") return true;
+  const referer = request.headers.get("referer");
+  if (!referer) return false;
+  try {
+    const refUrl = new URL(referer);
+    if (refUrl.searchParams.get("top") === "1") return true;
+    if (refUrl.pathname.startsWith("/api/preview")) {
+      return refUrl.searchParams.get("top") === "1";
+    }
+  } catch {
+    // Ignore malformed referers.
+  }
+  return false;
+}
+
 function parseTargetFromProxiedPath(pathname) {
   if (pathname.startsWith("/api/p/e/")) {
     const rest = pathname.slice("/api/p/e/".length);
@@ -135,11 +151,15 @@ export function middleware(request) {
   const targetUrl = new URL(`${pathname}${search}`, targetBase.origin).toString();
   const dest = request.headers.get("sec-fetch-dest") || "";
   const shouldPreview = dest === "document" || dest === "iframe" || dest === "frame";
+  const keepTopMode = shouldPreserveTopMode(request);
 
   if (shouldPreview) {
     const previewUrl = new URL(request.url);
     previewUrl.pathname = "/api/preview";
     previewUrl.search = buildPreviewSearch(targetUrl);
+    if (keepTopMode) {
+      previewUrl.searchParams.set("top", "1");
+    }
     return NextResponse.redirect(previewUrl);
   }
 
