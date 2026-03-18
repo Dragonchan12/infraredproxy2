@@ -434,13 +434,12 @@
       event.preventDefault();
       event.stopPropagation();
     };
-    const stopBarOnly = (event) => {
-      if (event.target !== bar) return;
-      event.preventDefault();
+    const shield = (event) => {
       event.stopPropagation();
     };
-    bar.addEventListener("click", stopBarOnly, true);
-    bar.addEventListener("mousedown", stopBarOnly, true);
+    ["pointerdown", "mousedown", "mouseup", "click", "touchstart", "touchend"].forEach((type) => {
+      bar.addEventListener(type, shield, true);
+    });
 
     const setCollapsed = (next) => {
       bar.dataset.collapsed = next ? "1" : "0";
@@ -522,14 +521,14 @@
       if (!value) return false;
       if (value.includes(" ")) return false;
       if (value === "localhost") return true;
-      if (/^(?:\\d{1,3}\\.){3}\\d{1,3}$/.test(value)) return true;
+      if (/^(?:\d{1,3}\.){3}\d{1,3}$/.test(value)) return true;
       return value.includes(".");
     };
     const normalizeInput = (value) => {
       if (!value) return "";
       const trimmed = value.trim();
       if (!trimmed) return "";
-      if (/^https?:\\/\\//i.test(trimmed)) return trimmed;
+      if (/^https?:\/\//i.test(trimmed)) return trimmed;
       if (looksLikeHost(trimmed)) return `https://${trimmed}`;
       return `https://search.brave.com/search?q=${encodeURIComponent(trimmed)}&source=web`;
     };
@@ -681,13 +680,12 @@
       event.preventDefault();
       event.stopPropagation();
     };
-    const stopBarOnly = (event) => {
-      if (event.target !== bar) return;
-      event.preventDefault();
+    const shield = (event) => {
       event.stopPropagation();
     };
-    bar.addEventListener("click", stopBarOnly, true);
-    bar.addEventListener("mousedown", stopBarOnly, true);
+    ["pointerdown", "mousedown", "mouseup", "click", "touchstart", "touchend"].forEach((type) => {
+      bar.addEventListener(type, shield, true);
+    });
 
     const setCollapsed = (next) => {
       bar.dataset.collapsed = next ? "1" : "0";
@@ -769,14 +767,14 @@
       if (!value) return false;
       if (value.includes(" ")) return false;
       if (value === "localhost") return true;
-      if (/^(?:\\d{1,3}\\.){3}\\d{1,3}$/.test(value)) return true;
+      if (/^(?:\d{1,3}\.){3}\d{1,3}$/.test(value)) return true;
       return value.includes(".");
     };
     const normalizeInput = (value) => {
       if (!value) return "";
       const trimmed = value.trim();
       if (!trimmed) return "";
-      if (/^https?:\\/\\//i.test(trimmed)) return trimmed;
+      if (/^https?:\/\//i.test(trimmed)) return trimmed;
       if (looksLikeHost(trimmed)) return `https://${trimmed}`;
       return `https://search.brave.com/search?q=${encodeURIComponent(trimmed)}&source=web`;
     };
@@ -830,15 +828,23 @@
       true
     );
 
+    const mountBar = () => {
+      const liveBar = document.querySelector(".proxy-topbar") || bar;
+      if (liveBar && liveBar !== bar) {
+        wireTopBar(liveBar);
+        return;
+      }
+      if (!document.body) return;
+      if (!bar.isConnected) {
+        document.body.appendChild(bar);
+      }
+      wireTopBar(bar);
+    };
+
     if (document.body) {
-      document.body.appendChild(bar);
+      mountBar();
     } else {
-      document.addEventListener("DOMContentLoaded", () => {
-        if (!document.body) return;
-        if (!document.querySelector(".proxy-topbar")) {
-          document.body.appendChild(bar);
-        }
-      });
+      document.addEventListener("DOMContentLoaded", mountBar, { once: true });
     }
   }
 
@@ -971,6 +977,8 @@
       if (!shouldShowTopBar()) return;
       if (!document.querySelector(".proxy-topbar")) {
         ensureTopBar();
+      } else {
+        wireTopBar(document.querySelector(".proxy-topbar"));
       }
     }, 1000);
   }
