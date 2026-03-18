@@ -99,7 +99,6 @@ export default function Browser({ encodeEnabled }) {
     hideAddress: true,
   });
   const [addressFocused, setAddressFocused] = useState(false);
-  const [isImmersive, setIsImmersive] = useState(false);
 
   const activeTab = useMemo(
     () => tabs.find((tab) => tab.id === activeTabId),
@@ -433,12 +432,6 @@ export default function Browser({ encodeEnabled }) {
     setHistoryItems([]);
   };
 
-  const toggleImmersive = () => {
-    setIsImmersive((prev) => !prev);
-    setShowHistory(false);
-    setShowSettings(false);
-  };
-
   const canGoBack = Boolean(activeTab && activeTab.historyIndex > 0);
   const canGoForward = Boolean(
     activeTab &&
@@ -559,172 +552,39 @@ export default function Browser({ encodeEnabled }) {
     }
   }, [branding.iconUrl]);
 
-  useEffect(() => {
-    if (!isImmersive) return;
-    const onKeyDown = (event) => {
-      if (event.key === "Escape") {
-        setIsImmersive(false);
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isImmersive]);
-
   const addressValue =
     branding.hideAddress && !addressFocused ? "" : input;
 
   return (
-    <div className={`browser-shell${isImmersive ? " immersive" : ""}`}>
+    <div className="browser-shell">
       <header className="browser-top">
-        {!isImmersive ? (
-          <>
-            <div className="tabs-bar">
-              <div className="brand">
-                {branding.iconUrl ? (
-                  <img src={branding.iconUrl} alt="" className="brand-icon" />
-                ) : (
-                  <div className="brand-icon placeholder">CP</div>
-                )}
-                <span className="brand-title">{branding.title || "Controlled Proxy"}</span>
-              </div>
-              <div className="tabs-scroll">
-                {tabs.map((tab) => (
-                  <Tab
-                    key={tab.id}
-                    title={tab.title}
-                    onSelect={() => handleSelectTab(tab.id)}
-                    onClose={() => handleCloseTab(tab.id)}
-                    isActive={tab.id === activeTabId}
-                  />
-                ))}
-              </div>
-              <button type="button" className="new-tab" onClick={handleNewTab} aria-label="New tab">
-                +
-              </button>
-            </div>
-            <div className="panel controls">
-              <div className="controls-row">
-                <div className="nav-buttons">
-                  <button type="button" className="tool-button" onClick={handleBack} disabled={!canGoBack}>
-                    Back
-                  </button>
-                  <button type="button" className="tool-button" onClick={handleForward} disabled={!canGoForward}>
-                    Forward
-                  </button>
-                  <button type="button" className="tool-button" onClick={handleRefresh}>
-                    Refresh
-                  </button>
-                </div>
-                <input
-                  id="target"
-                  type="text"
-                  placeholder="Enter a URL or search with Brave"
-                  value={addressValue}
-                  onChange={(event) => setInput(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      handleOpen();
-                    }
-                  }}
-                  onFocus={() => setAddressFocused(true)}
-                  onBlur={() => setAddressFocused(false)}
-                />
-                <div className="controls-actions">
-                  <button type="button" onClick={handleOpen}>
-                    Go
-                  </button>
-                  <button type="button" className="ghost" onClick={toggleImmersive}>
-                    Full Page
-                  </button>
-                  <button type="button" className="ghost" onClick={() => setShowHistory((prev) => !prev)}>
-                    History
-                  </button>
-                  <button type="button" className="ghost" onClick={() => setShowSettings((prev) => !prev)}>
-                    Settings
-                  </button>
-                  <button type="button" className="reset" onClick={handleReset}>
-                    Reset
-                  </button>
-                </div>
-              </div>
-            </div>
-            {showSettings && (
-              <div className="panel settings-panel">
-                <div className="settings-grid">
-                  <label htmlFor="brandTitle">Header text</label>
-                  <input
-                    id="brandTitle"
-                    type="text"
-                    value={branding.title}
-                    onChange={(event) => setBranding((prev) => ({ ...prev, title: event.target.value }))}
-                    placeholder="Controlled Proxy"
-                  />
-                  <label htmlFor="brandIcon">Favicon URL</label>
-                  <input
-                    id="brandIcon"
-                    type="text"
-                    value={branding.iconUrl}
-                    onChange={(event) => setBranding((prev) => ({ ...prev, iconUrl: event.target.value }))}
-                    placeholder="https://example.com/icon.png"
-                  />
-                  <label htmlFor="hideAddress">Hide address bar</label>
-                  <div className="settings-toggle">
-                    <input
-                      id="hideAddress"
-                      type="checkbox"
-                      checked={branding.hideAddress}
-                      onChange={(event) =>
-                        setBranding((prev) => ({ ...prev, hideAddress: event.target.checked }))
-                      }
-                    />
-                    <span>Mask current site info until focused</span>
-                  </div>
-                </div>
-              </div>
+        <div className="tabs-bar">
+          <div className="brand">
+            {branding.iconUrl ? (
+              <img src={branding.iconUrl} alt="" className="brand-icon" />
+            ) : (
+              <div className="brand-icon placeholder">CP</div>
             )}
-            {showHistory && (
-              <div className="panel history-panel">
-                <div className="history-header">
-                  <strong>History</strong>
-                  <button type="button" className="ghost" onClick={clearHistory}>
-                    Clear
-                  </button>
-                </div>
-                <div className="history-list">
-                  {!historyItems.length && (
-                    <div className="history-empty">No history yet.</div>
-                  )}
-                  {historyItems.map((entry) => (
-                    <button
-                      type="button"
-                      key={`${entry.ts}-${entry.url}`}
-                      className="history-item"
-                      onClick={() => handleOpenHistoryEntry(entry.url)}
-                    >
-                      <span className="history-title">{entry.title}</span>
-                      <span className="history-url">{entry.url}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="panel immersive-chrome">
-            <div className="immersive-brand">
-              {branding.iconUrl ? (
-                <img src={branding.iconUrl} alt="" className="brand-icon" />
-              ) : (
-                <div className="brand-icon placeholder">CP</div>
-              )}
-              <div className="immersive-brand-copy">
-                <span className="brand-title">{branding.title || "Controlled Proxy"}</span>
-                <span className="immersive-title">{activeTab?.title || "Full Page"}</span>
-              </div>
-            </div>
-            <div className="immersive-controls">
+            <span className="brand-title">{branding.title || "Controlled Proxy"}</span>
+          </div>
+          <div className="tabs-scroll">
+            {tabs.map((tab) => (
+              <Tab
+                key={tab.id}
+                title={tab.title}
+                onSelect={() => handleSelectTab(tab.id)}
+                onClose={() => handleCloseTab(tab.id)}
+                isActive={tab.id === activeTabId}
+              />
+            ))}
+          </div>
+          <button type="button" className="new-tab" onClick={handleNewTab} aria-label="New tab">
+            +
+          </button>
+        </div>
+        <div className="panel controls">
+          <div className="controls-row">
+            <div className="nav-buttons">
               <button type="button" className="tool-button" onClick={handleBack} disabled={!canGoBack}>
                 Back
               </button>
@@ -734,25 +594,110 @@ export default function Browser({ encodeEnabled }) {
               <button type="button" className="tool-button" onClick={handleRefresh}>
                 Refresh
               </button>
-              <input
-                id="target"
-                type="text"
-                placeholder="URL or search"
-                value={addressValue}
-                onChange={(event) => setInput(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    handleOpen();
+            </div>
+            <input
+              id="target"
+              type="text"
+              placeholder="Enter a URL or search with Brave"
+              value={addressValue}
+              onChange={(event) => setInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  handleOpen();
+                }
+              }}
+              onFocus={() => setAddressFocused(true)}
+              onBlur={() => setAddressFocused(false)}
+            />
+            <div className="controls-actions">
+              <button type="button" onClick={handleOpen}>
+                Go
+              </button>
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => {
+                  const url = activeTab?.url || input;
+                  const preview = getIframeSrc(url);
+                  if (preview) {
+                    const joiner = preview.includes("?") ? "&" : "?";
+                    window.location.href = `${preview}${joiner}top=1`;
                   }
                 }}
-                onFocus={() => setAddressFocused(true)}
-                onBlur={() => setAddressFocused(false)}
-              />
-              <button type="button" className="ghost" onClick={toggleImmersive}>
-                Exit
+              >
+                Full Page
               </button>
+              <button type="button" className="ghost" onClick={() => setShowHistory((prev) => !prev)}>
+                History
+              </button>
+              <button type="button" className="ghost" onClick={() => setShowSettings((prev) => !prev)}>
+                Settings
+              </button>
+              <button type="button" className="reset" onClick={handleReset}>
+                Reset
+              </button>
+            </div>
+          </div>
+        </div>
+        {showSettings && (
+          <div className="panel settings-panel">
+            <div className="settings-grid">
+              <label htmlFor="brandTitle">Header text</label>
+              <input
+                id="brandTitle"
+                type="text"
+                value={branding.title}
+                onChange={(event) => setBranding((prev) => ({ ...prev, title: event.target.value }))}
+                placeholder="Controlled Proxy"
+              />
+              <label htmlFor="brandIcon">Favicon URL</label>
+              <input
+                id="brandIcon"
+                type="text"
+                value={branding.iconUrl}
+                onChange={(event) => setBranding((prev) => ({ ...prev, iconUrl: event.target.value }))}
+                placeholder="https://example.com/icon.png"
+              />
+              <label htmlFor="hideAddress">Hide address bar</label>
+              <div className="settings-toggle">
+                <input
+                  id="hideAddress"
+                  type="checkbox"
+                  checked={branding.hideAddress}
+                  onChange={(event) =>
+                    setBranding((prev) => ({ ...prev, hideAddress: event.target.checked }))
+                  }
+                />
+                <span>Mask current site info until focused</span>
+              </div>
+            </div>
+          </div>
+        )}
+        {showHistory && (
+          <div className="panel history-panel">
+            <div className="history-header">
+              <strong>History</strong>
+              <button type="button" className="ghost" onClick={clearHistory}>
+                Clear
+              </button>
+            </div>
+            <div className="history-list">
+              {!historyItems.length && (
+                <div className="history-empty">No history yet.</div>
+              )}
+              {historyItems.map((entry) => (
+                <button
+                  type="button"
+                  key={`${entry.ts}-${entry.url}`}
+                  className="history-item"
+                  onClick={() => handleOpenHistoryEntry(entry.url)}
+                >
+                  <span className="history-title">{entry.title}</span>
+                  <span className="history-url">{entry.url}</span>
+                </button>
+              ))}
             </div>
           </div>
         )}
