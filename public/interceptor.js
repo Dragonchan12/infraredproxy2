@@ -1024,24 +1024,24 @@
   }
 
   try {
-    const locationProto = window.Location && window.Location.prototype;
-    if (locationProto && locationProto.assign) {
-      const originalAssign = locationProto.assign;
-      locationProto.assign = function(url) {
-        const nextVirtual = resolveVirtualUrl(url);
-        if (nextVirtual) setVirtualUrl(nextVirtual);
-        return originalAssign.call(this, proxifyDocument(url, getBaseUrl()));
-      };
-    }
-    if (locationProto && locationProto.replace) {
-      const originalReplace = locationProto.replace;
-      locationProto.replace = function(url) {
-        const nextVirtual = resolveVirtualUrl(url);
-        if (nextVirtual) setVirtualUrl(nextVirtual);
-        return originalReplace.call(this, proxifyDocument(url, getBaseUrl()));
-      };
-    }
-    if (locationProto) {
+    const patchLocationPrototype = (locationProto) => {
+      if (!locationProto) return;
+      if (locationProto.assign) {
+        const originalAssign = locationProto.assign;
+        locationProto.assign = function(url) {
+          const nextVirtual = resolveVirtualUrl(url);
+          if (nextVirtual) setVirtualUrl(nextVirtual);
+          return originalAssign.call(this, proxifyDocument(url, getBaseUrl()));
+        };
+      }
+      if (locationProto.replace) {
+        const originalReplace = locationProto.replace;
+        locationProto.replace = function(url) {
+          const nextVirtual = resolveVirtualUrl(url);
+          if (nextVirtual) setVirtualUrl(nextVirtual);
+          return originalReplace.call(this, proxifyDocument(url, getBaseUrl()));
+        };
+      }
       const hrefDescriptor = Object.getOwnPropertyDescriptor(locationProto, "href");
       if (hrefDescriptor && hrefDescriptor.get && hrefDescriptor.set) {
         Object.defineProperty(locationProto, "href", {
@@ -1083,14 +1083,22 @@
             : undefined,
         });
       });
+    };
+
+    patchLocationPrototype(window.Location && window.Location.prototype);
+    if (window.parent && window.parent !== window) {
+      try {
+        patchLocationPrototype(window.parent.Location && window.parent.Location.prototype);
+      } catch {
+        // Ignore cross-window patch failures.
+      }
     }
-    if (locationProto && locationProto.replace) {
-      const originalReplace = locationProto.replace;
-      locationProto.replace = function(url) {
-        const nextVirtual = resolveVirtualUrl(url);
-        if (nextVirtual) setVirtualUrl(nextVirtual);
-        return originalReplace.call(this, proxifyDocument(url, getBaseUrl()));
-      };
+    if (window.top && window.top !== window) {
+      try {
+        patchLocationPrototype(window.top.Location && window.top.Location.prototype);
+      } catch {
+        // Ignore cross-window patch failures.
+      }
     }
   } catch {
     // Some browsers lock down Location; ignore.

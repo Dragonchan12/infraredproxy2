@@ -187,9 +187,16 @@ button:hover {
   display: flex;
   gap: 8px;
   align-items: center;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   padding: 4px;
   min-width: 0;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.tabs-scroll::-webkit-scrollbar {
+  display: none;
 }
 
 .tab {
@@ -203,6 +210,7 @@ button:hover {
   flex: 1 1 140px;
   min-width: 110px;
   max-width: 220px;
+  flex-shrink: 0;
 }
 
 .tab-select {
@@ -298,6 +306,7 @@ button:hover {
 .controls-actions {
   display: flex;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
 button.ghost {
@@ -422,26 +431,178 @@ button.reset:hover {
   min-height: 60vh;
 }
 
+.immersive-chrome {
+  display: grid;
+  gap: 10px;
+  padding: 10px 12px;
+}
+
+.immersive-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.immersive-brand-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.immersive-title {
+  font-size: 0.8rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.immersive-controls {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: auto auto auto 1fr auto;
+  align-items: center;
+}
+
+.browser-shell.immersive .browser-top {
+  gap: 10px;
+}
+
+.browser-shell.immersive .tabs-bar,
+.browser-shell.immersive .controls,
+.browser-shell.immersive .settings-panel,
+.browser-shell.immersive .history-panel {
+  display: none;
+}
+
+.browser-shell.immersive .viewer {
+  min-height: 0;
+}
+
 @media (max-width: 720px) {
-  .controls-row {
-    grid-template-columns: 1fr;
+  .browser-shell {
+    padding: 6px;
+    gap: 6px;
   }
 
-  button {
-    width: 100%;
+  .browser-top {
+    gap: 6px;
   }
 
   .tabs-bar {
-    grid-template-columns: 1fr;
-    align-items: stretch;
+    gap: 6px;
+    padding: 6px 8px;
+    align-items: center;
+  }
+
+  .brand {
+    min-width: 0;
+  }
+
+  .brand-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 7px;
+  }
+
+  .brand-title {
+    max-width: 22vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.82rem;
   }
 
   .tabs-scroll {
-    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .tab {
+    min-width: 72px;
+    max-width: 120px;
+    flex-basis: 72px;
+    padding: 3px;
+  }
+
+  .new-tab {
+    width: 28px;
+    height: 28px;
+    font-size: 1.15rem;
+  }
+
+  .controls {
+    padding: 8px;
+  }
+
+  .controls-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  button {
+    width: auto;
+    padding: 8px 10px;
+    font-size: 0.88rem;
+  }
+
+  .nav-buttons {
+    gap: 4px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .nav-buttons::-webkit-scrollbar {
+    display: none;
+  }
+
+  .controls-actions {
+    gap: 4px;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .controls-actions::-webkit-scrollbar {
+    display: none;
+  }
+
+  .controls-row button {
+    min-width: auto;
+    white-space: nowrap;
+  }
+
+  .controls-row input[type="text"] {
+    padding: 9px 10px;
+    font-size: 0.9rem;
   }
 
   .settings-grid {
     grid-template-columns: 1fr;
+  }
+
+  .immersive-controls {
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .immersive-controls input {
+    grid-column: 1 / -1;
+  }
+
+  .immersive-chrome {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+
+  .immersive-brand {
+    gap: 8px;
+  }
+
+  .immersive-title {
+    font-size: 0.75rem;
   }
 }
 
