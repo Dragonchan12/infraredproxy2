@@ -434,11 +434,13 @@
       event.preventDefault();
       event.stopPropagation();
     };
-    const shield = (event) => {
+    const stopBarOnly = (event) => {
+      if (event.target !== bar) return;
+      event.preventDefault();
       event.stopPropagation();
     };
     ["pointerdown", "mousedown", "mouseup", "click", "touchstart", "touchend"].forEach((type) => {
-      bar.addEventListener(type, shield, true);
+      bar.addEventListener(type, stopBarOnly, true);
     });
 
     const setCollapsed = (next) => {
@@ -680,11 +682,13 @@
       event.preventDefault();
       event.stopPropagation();
     };
-    const shield = (event) => {
+    const stopBarOnly = (event) => {
+      if (event.target !== bar) return;
+      event.preventDefault();
       event.stopPropagation();
     };
     ["pointerdown", "mousedown", "mouseup", "click", "touchstart", "touchend"].forEach((type) => {
-      bar.addEventListener(type, shield, true);
+      bar.addEventListener(type, stopBarOnly, true);
     });
 
     const setCollapsed = (next) => {
